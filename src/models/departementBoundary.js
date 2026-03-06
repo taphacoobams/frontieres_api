@@ -3,7 +3,7 @@ const pool = require('../database/connection');
 const DepartementBoundary = {
   async findAll(regionId) {
     let query = `
-      SELECT id, departement_id, region_id, name,
+      SELECT id, departement_id, region_id, name, lat, lon, superficie_km2,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM departements_boundaries
     `;
@@ -21,7 +21,7 @@ const DepartementBoundary = {
 
   async findById(id) {
     const result = await pool.query(`
-      SELECT id, departement_id, region_id, name,
+      SELECT id, departement_id, region_id, name, lat, lon, superficie_km2,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM departements_boundaries
       WHERE id = $1
@@ -48,7 +48,10 @@ const DepartementBoundary = {
               'id', id,
               'departement_id', departement_id,
               'region_id', region_id,
-              'name', name
+              'name', name,
+              'lat', lat,
+              'lon', lon,
+              'superficie_km2', superficie_km2
             ),
             'geometry', ST_AsGeoJSON(geometry)::json
           )

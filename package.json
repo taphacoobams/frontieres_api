@@ -9,6 +9,11 @@
     "init-db": "node src/database/init.js",
     "rebuild-localites": "node src/scripts/rebuild-localites.js",
     "fetch-elevation": "node src/scripts/fetch-elevation.js",
+    "update-departements": "node src/scripts/update-departements.js",
+    "fix-pikine-communes": "node src/scripts/fix-pikine-communes.js",
+    "add-attributes": "node src/scripts/add-attributes.js",
+    "voronoi-localites": "node src/scripts/voronoi-localites.js",
+    "enrich-all": "node src/scripts/update-departements.js && node src/scripts/fix-pikine-communes.js && node src/scripts/add-attributes.js && node src/scripts/voronoi-localites.js",
     "test": "jest --forceExit --detectOpenHandles"
   },
   "dependencies": {

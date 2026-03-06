@@ -46,6 +46,22 @@ const LocaliteController = {
     }
   },
 
+  async getFeatureCollection(req, res) {
+    try {
+      const { commune_id, departement_id, region_id, limit } = req.query;
+      const geojson = await LocaliteService.getFeatureCollection({
+        communeId: commune_id || null,
+        departementId: departement_id || null,
+        regionId: region_id || null,
+        limit: limit ? parseInt(limit, 10) : 500,
+      });
+      res.json(geojson);
+    } catch (err) {
+      console.error('Erreur GET /map/localites :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
   async getStats(req, res) {
     try {
       const stats = await LocaliteService.getStats();

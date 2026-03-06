@@ -3,7 +3,7 @@ const pool = require('../database/connection');
 const RegionBoundary = {
   async findAll() {
     const result = await pool.query(`
-      SELECT id, region_id, name,
+      SELECT id, region_id, name, lat, lon, superficie_km2,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM regions_boundaries
       ORDER BY name
@@ -13,7 +13,7 @@ const RegionBoundary = {
 
   async findById(id) {
     const result = await pool.query(`
-      SELECT id, region_id, name,
+      SELECT id, region_id, name, lat, lon, superficie_km2,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM regions_boundaries
       WHERE id = $1
@@ -31,7 +31,10 @@ const RegionBoundary = {
             'properties', json_build_object(
               'id', id,
               'region_id', region_id,
-              'name', name
+              'name', name,
+              'lat', lat,
+              'lon', lon,
+              'superficie_km2', superficie_km2
             ),
             'geometry', ST_AsGeoJSON(geometry)::json
           )

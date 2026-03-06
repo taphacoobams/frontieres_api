@@ -42,6 +42,16 @@ const LocaliteService = {
     return rows;
   },
 
+  async getFeatureCollection({ communeId, departementId, regionId, limit } = {}) {
+    const cacheKey = `localites:fc:${communeId || ''}:${departementId || ''}:${regionId || ''}:${limit || 500}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
+    const geojson = await LocaliteGeo.findAllAsFeatureCollection({ communeId, departementId, regionId, limit });
+    setCache(cacheKey, geojson);
+    return geojson;
+  },
+
   async count(filters) {
     return LocaliteGeo.count(filters);
   },
