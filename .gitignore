@@ -9,3 +9,6 @@ missing-polygons/
 # GeoNames data files
 SN.txt
 export.geojson
+
+# Database dumps
+*.dump
