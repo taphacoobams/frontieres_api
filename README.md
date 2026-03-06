@@ -1,24 +1,55 @@
 # Frontières API – Sénégal 🇸🇳
 
-API REST construite avec **Node.js (Express)** et **PostgreSQL/PostGIS** fournissant les frontières administratives complètes du Sénégal : **régions, départements, communes et localités**.
+API REST construite avec **Node.js / Express** et **PostgreSQL / PostGIS** fournissant les frontières administratives complètes du Sénégal enrichies avec les données de population du **recensement ANSD 2023**.
 
 ---
 
 ## 🚀 Fonctionnalités
 
-* 📍 Liste des **14 régions** avec leurs polygones GeoJSON (MultiPolygon)
-* 🏘️ Liste des **46 départements** par région (avec polygones GeoJSON)
-* 🏠 Liste des **552 communes** avec polygones GeoJSON et filtrage par département
-* 📌 Liste des **25 515 localités** avec coordonnées GPS et rattachement commune
-* 🗺️ **FeatureCollections** GeoJSON pour cartographie (Leaflet, Mapbox, OpenLayers, D3.js)
-* 🔍 Recherche par nom dans les localités (avec filtrage par commune, département, région)
-* 📊 Statistiques globales (nombre de régions, départements, communes et localités)
+* 📍 **14 régions** — polygones MultiPolygon, population, densité, superficie
+* 🏘️ **46 départements** — polygones MultiPolygon, population, densité, superficie
+* 🏠 **552 communes** — polygones MultiPolygon, population, densité, superficie
+* 📌 **25 515 localités** — polygones Voronoï, coordonnées GPS, population (ANSD 2023), densité
+* 🗺️ **FeatureCollections GeoJSON** pour Leaflet, Mapbox, OpenLayers, D3.js
+* 🔍 Recherche par nom avec filtrage multi-niveaux (commune, département, région)
+* 📊 Statistiques globales
 * 📄 Pagination sur les localités (`limit`, `offset`)
 * 🌐 CORS activé
-* 🛡️ Sécurité (Helmet, rate limiting 200 req/15min)
-* 📦 Réponses JSON et GeoJSON (Feature & FeatureCollection)
-* 📖 Documentation interactive (Redoc + OpenAPI)
+* 🛡️ Sécurité (Helmet, rate limiting 200 req/15 min)
+* � Documentation interactive (Redoc + OpenAPI)
 * 🧪 34 tests fonctionnels
+
+---
+
+## 📊 Données de population
+
+Les données de population proviennent du **Recensement Général de la Population et de l'Habitat (RGPH) 2023** de l'ANSD.
+
+| Niveau | Couverture |
+|--------|------------|
+| Régions | 14 / 14 |
+| Départements | 46 / 46 |
+| Communes | 552 / 552 |
+| Localités | 25 515 / 25 515 |
+
+**Population totale recensée : ~22 488 341 habitants**
+
+Les densités (`densite`, en hab/km²) sont calculées à partir de la population et de la superficie (`superficie_km2`).
+
+---
+
+## �️ Schéma de la base
+
+```sql
+-- Toutes les entités utilisent le même type géométrique
+geometry(MultiPolygon, 4326)
+
+regions       (id, name, geometry, superficie_km2, population, densite)
+departements  (id, name, region_id, geometry, superficie_km2, population, densite)
+communes      (id, name, departement_id, region_id, geometry, superficie_km2, population, densite)
+localites     (id, name, commune_id, departement_id, region_id,
+               lat, lon, elevation, geometry, superficie_km2, population, densite)
+```
 
 ---
 
@@ -27,10 +58,10 @@ API REST construite avec **Node.js (Express)** et **PostgreSQL/PostGIS** fournis
 * **Node.js** >= 18
 * **Express.js** — framework HTTP
 * **PostgreSQL** + **PostGIS** — base de données spatiale
+* **pg_trgm** — recherche floue pour le matching des localités
 * **pg** — client PostgreSQL
 * **Helmet** — sécurité HTTP
 * **Jest** + **Supertest** — tests fonctionnels
-* **npm** — gestionnaire de paquets
 * Déployée sur **Render**
 
 ---
@@ -38,11 +69,8 @@ API REST construite avec **Node.js (Express)** et **PostgreSQL/PostGIS** fournis
 ## 📦 Installation locale
 
 ```bash
-# Cloner le projet
 git clone https://github.com/taphacoobams/frontieres_api.git
 cd frontieres_api
-
-# Installer les dépendances
 npm install
 ```
 
@@ -64,149 +92,128 @@ NODE_ENV=development
 
 ---
 
-## ▶️ Lancer le projet en développement
+## ▶️ Démarrage
 
 ```bash
+# Développement (hot-reload)
 npm run dev
-```
 
-L'API sera disponible sur :
-👉 `http://localhost:3005`
-
----
-
-## 🏗️ Build & Production
-
-```bash
-npm install
+# Initialiser le schéma de la base (à faire une fois)
 npm run init-db
+
+# Production
 node src/server.js
 ```
+
+L'API est disponible sur `http://localhost:3005`.
 
 ---
 
 ## 🌍 Déploiement (Render)
 
-### Variables d'environnement requises :
+### Variables d'environnement
 
 | Clé | Valeur |
 |-----|--------|
-| `NODE_ENV` | production |
-| `DATABASE_URL` | Connection string PostgreSQL |
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | Connection string PostgreSQL (fourni par Render) |
 
 ### Commandes Render
 
-**Build command**
+| Rôle | Commande |
+|------|----------|
+| Build | `npm install && npm run init-db` |
+| Start | `node src/server.js` |
+
+`npm run init-db` crée les tables et index si absents, et **migre automatiquement** les bases existantes (`ADD COLUMN IF NOT EXISTS`). Il est idempotent — peut être relancé sans risque.
+
+### Importer les données depuis une base locale
 
 ```bash
-npm install && npm run init-db
-```
+# Export (tables actuelles)
+pg_dump -Fc -d frontieres_db \
+  -t regions -t departements -t communes -t localites \
+  > dump.sql
 
-**Start command**
-
-```bash
-node src/server.js
-```
-
-Le fichier `render.yaml` est inclus pour le déploiement automatique via [Render Blueprints](https://dashboard.render.com/blueprints).
-
-### Importer les données
-
-```bash
-# Export depuis votre base locale
-pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries -t localites > dump.sql
-
-# Import sur Render (utiliser l'External Database URL)
-pg_restore -d "postgres://user:pass@host/dbname" --no-owner --no-acl dump.sql
+# Import sur Render (External Database URL)
+pg_restore -d "postgres://user:pass@host/dbname" \
+  --no-owner --no-acl dump.sql
 ```
 
 ---
 
 ## 📚 Endpoints
 
-### 🔹 Régions
+### Régions
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/regions` | Liste des 14 régions (GeoJSON Features avec polygones) |
+| `GET` | `/api/regions` | Liste des 14 régions |
 | `GET` | `/api/regions/:id` | Région par ID |
+| `GET` | `/api/map/regions` | FeatureCollection GeoJSON |
 
-### 🔹 Départements
+### Départements
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/departements` | Liste de tous les départements |
-| `GET` | `/api/departements?region_id=1` | Départements filtrés par région |
+| `GET` | `/api/departements` | Liste des 46 départements |
+| `GET` | `/api/departements?region_id=1` | Filtrés par région |
 | `GET` | `/api/departements/:id` | Département par ID |
+| `GET` | `/api/map/departements` | FeatureCollection GeoJSON |
 
-### 🔹 Communes
+### Communes
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/communes` | Liste de toutes les communes |
-| `GET` | `/api/communes?departement_id=1` | Communes filtrées par département |
+| `GET` | `/api/communes` | Liste des 552 communes |
+| `GET` | `/api/communes?departement_id=1` | Filtrées par département |
 | `GET` | `/api/communes/:id` | Commune par ID |
+| `GET` | `/api/map/communes` | FeatureCollection GeoJSON |
 
-### 🔹 Localités
+### Localités
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/localites` | Liste de toutes les localités |
-| `GET` | `/api/localites?commune_id=1` | Localités filtrées par commune |
-| `GET` | `/api/localites?departement_id=1` | Localités filtrées par département |
-| `GET` | `/api/localites?region_id=1` | Localités filtrées par région |
-| `GET` | `/api/localites?limit=50&offset=0` | Localités paginées |
+| `GET` | `/api/localites` | Liste des localités (paginée) |
+| `GET` | `/api/localites?commune_id=1` | Filtrées par commune |
+| `GET` | `/api/localites?departement_id=1` | Filtrées par département |
+| `GET` | `/api/localites?region_id=1` | Filtrées par région |
+| `GET` | `/api/localites?limit=50&offset=0` | Pagination |
 | `GET` | `/api/localites/:id` | Localité par ID |
-| `GET` | `/api/localites/search?q=dakar` | Recherche par nom (min 2 caractères) |
+| `GET` | `/api/localites/search?q=dakar` | Recherche par nom (≥ 2 caractères) |
 
-> La recherche est insensible à la casse.
+> La recherche est insensible à la casse et aux accents.
 
-### 🔹 Cartographie (FeatureCollections)
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/api/map/regions` | FeatureCollection de toutes les régions |
-| `GET` | `/api/map/departements` | FeatureCollection de tous les départements |
-| `GET` | `/api/map/communes` | FeatureCollection de toutes les communes |
-
-### 🔹 Statistiques & Utilitaires
+### Statistiques & Utilitaires
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/stats` | Nombre total de régions, départements, communes et localités |
-| `GET` | `/health` | Statut du serveur (database, timestamp) |
-| `GET` | `/docs` | [Documentation interactive (Redoc)](https://frontieres-api.onrender.com/docs) |
-| `GET` | `/api/openapi.json` | [Spécification OpenAPI JSON](https://frontieres-api.onrender.com/api/openapi.json) |
+| `GET` | `/api/stats` | Compteurs globaux (régions, depts, communes, localités) |
+| `GET` | `/health` | Statut serveur et base de données |
+| `GET` | `/docs` | Documentation Redoc |
+| `GET` | `/api/openapi.json` | Spécification OpenAPI |
 
 ---
 
-## 📍 Pipeline des localités
+## � Format de réponse GeoJSON
 
-Le fichier `senegal.ts` contient les **25 515 localités** avec leur hiérarchie :
+Chaque entité est retournée comme un `Feature` GeoJSON avec :
 
-`region → departement → commune → localite`
-
-```bash
-npm run rebuild-localites
+```json
+{
+  "type": "Feature",
+  "geometry": { "type": "MultiPolygon", "coordinates": [...] },
+  "properties": {
+    "id": 1,
+    "name": "Dakar",
+    "superficie_km2": 542.6,
+    "population": 4391619,
+    "densite": 8107.84
+  }
+}
 ```
 
-Le script effectue automatiquement 7 étapes :
-
-1. **Parse `senegal.ts`** → insertion des 25 515 localités (coords NULL)
-2. **Normalisation des noms** → suppression accents, tirets, ponctuation
-3. **SN.txt (GeoNames, feature_class=P)** → géocodage par nom → source `sn_txt`
-4. **communes.json** → chargement des centres communes (pour filtrage étape 6)
-5. **localites.geojson (avec name, place=village|hamlet|neighbourhood)** → source `osm_geojson`
-6. **localites.geojson (sans name)** → estimation par commune, skip si proche centre → source `osm_geojson_estimated`
-7. **Distribution spatiale** → points uniques dans le polygone commune (ST_GeneratePoints) → source `commune_polygon_random`
-
-| Source | Localités | Description |
-|--------|-----------|-------------|
-| `sn_txt` | 3 367 | Coordonnées depuis SN.txt (GeoNames, populated places) |
-| `osm_geojson` | 1 980 | Coordonnées depuis localites.geojson (par nom) |
-| `osm_geojson_estimated` | 4 676 | Points GeoJSON sans nom, assignés par commune |
-| `commune_polygon_random` | 15 492 | Points uniques générés dans le polygone commune |
-| **Total** | **25 515** | |
+Les localités incluent également `lat`, `lon`, et `elevation`.
 
 ---
 
@@ -216,11 +223,11 @@ Le script effectue automatiquement 7 étapes :
 npm test
 ```
 
+34 tests couvrant tous les endpoints (régions, départements, communes, localités, santé).
+
 ---
 
 ## 🤝 Contribuer
-
-Les contributions sont les bienvenues ! Voici comment participer :
 
 ### 1. Fork & Clone
 
@@ -236,11 +243,7 @@ npm install
 git checkout -b feat/ma-fonctionnalite
 ```
 
-### 3. Faire tes modifications
-
-- Respecte la structure existante (Express, JavaScript)
-- Ajoute des tests fonctionnels pour chaque nouveau endpoint
-- Vérifie que tous les tests passent :
+### 3. Tester
 
 ```bash
 npm test
@@ -248,22 +251,17 @@ npm test
 
 ### 4. Ouvrir une Pull Request
 
-- Décris clairement ce que tu as ajouté ou corrigé
-- Référence l'issue correspondante si elle existe (ex: `Closes #12`)
-- Attends la revue avant le merge
+Décris ce que tu as ajouté ou corrigé et référence l'issue si applicable.
 
-### 5. Signaler un bug ou proposer une idée
+### 5. Signaler un bug
 
-Ouvre une [issue GitHub](https://github.com/taphacoobams/frontieres_api/issues) en décrivant :
-- Le comportement observé
-- Le comportement attendu
-- Les étapes pour reproduire
+Ouvre une [issue GitHub](https://github.com/taphacoobams/frontieres_api/issues) avec le comportement observé, attendu, et les étapes pour reproduire.
 
 ---
 
 ## 💡 Inspiration
 
-Ce projet est inspiré par [**decoupage_administratif_api**](https://github.com/TheShvdow/decoupage_administratif_api) de [@TheShvdow](https://github.com/TheShvdow). L'idée était d'aller plus loin en ajoutant les **polygones géographiques** (frontières) de chaque entité administrative et les **25 515 localités** géolocalisées.
+Ce projet est inspiré par [**decoupage_administratif_api**](https://github.com/TheShvdow/decoupage_administratif_api) de [@TheShvdow](https://github.com/TheShvdow), enrichi avec les **polygones géographiques** (frontières PostGIS), les **25 515 localités** géolocalisées, et les **données de population ANSD 2023**.
 
 ---
 
@@ -275,9 +273,8 @@ MIT
 
 ## 👨🏽‍💻 Auteur
 
-**taphacoobams**
-GitHub : [https://github.com/taphacoobams](https://github.com/taphacoobams)
+**taphacoobams** — [github.com/taphacoobams](https://github.com/taphacoobams)
 
 ---
 
-> Projet open-source visant à faciliter l'accès aux données administratives du Sénégal 🇸🇳
+> Projet open-source pour faciliter l'accès aux données administratives et démographiques du Sénégal 🇸🇳
