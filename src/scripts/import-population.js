@@ -90,11 +90,13 @@ function parseCsvToMap(content) {
     return { map: new Map(), headers, idxLocality, idxPop };
   }
 
-  // Agréger : nom_localité → { pop, commune }
+  // Agréger : clé composite (commune_normalisée|localite_normalisée) → { pop, rawName, commune }
+  // Cela évite que deux localités de même nom dans des communes différentes
+  // se retrouvent fusionnées en une seule entrée.
   const aggr = new Map();
 
   for (let i = 1; i < lines.length; i++) {
-    const fields = parseCsvLine(lines[i], sep);
+    const fields  = parseCsvLine(lines[i], sep);
     const rawName = fields[idxLocality]?.replace(/^["']|["']$/g, '').trim();
     const popRaw  = fields[idxPop]?.replace(/[^0-9]/g, '');
     const pop     = parseInt(popRaw, 10);
@@ -104,11 +106,14 @@ function parseCsvToMap(content) {
 
     if (!rawName || isNaN(pop) || pop <= 0) continue;
 
-    const key = normalizeName(rawName);
+    const normLoc  = normalizeName(rawName);
+    const normComm = normalizeName(commune || '');
+    const key      = normComm + '|' + normLoc;
+
     if (aggr.has(key)) {
       aggr.get(key).pop += pop;
     } else {
-      aggr.set(key, { name: rawName, pop, commune });
+      aggr.set(key, { name: rawName, pop, commune, normLoc });
     }
   }
 
@@ -117,44 +122,61 @@ function parseCsvToMap(content) {
 
 // ─── Correspondance DB ────────────────────────────────────────────
 
-async function matchAndUpdate(client, normKey, rawName, pop, stats) {
-  // 1. Comparaison exacte : normKey est déjà normalisé côté JS
-  //    On compare lower(name) directement (rapide si index sur name)
-  const { rows: r1 } = await client.query(
-    'SELECT id FROM localites WHERE lower(name) = $1 LIMIT 1',
-    [normKey]
-  );
+// Cache commune_name (CSV) → commune_id (DB)
+const communeIdCache = new Map();
 
-  if (r1.length > 0) {
-    await client.query(
-      'UPDATE localites SET population = COALESCE(population, 0) + $1 WHERE id = $2',
-      [pop, r1[0].id]
+async function getCommuneId(client, csvCommuneName) {
+  if (!csvCommuneName) return null;
+  const normKey = normalizeName(csvCommuneName);
+  if (communeIdCache.has(normKey)) return communeIdCache.get(normKey);
+
+  const { rows } = await client.query(
+    'SELECT id FROM communes WHERE lower(name) = $1 OR lower(name) = lower($2) LIMIT 1',
+    [normKey, csvCommuneName]
+  );
+  const id = rows.length > 0 ? rows[0].id : null;
+  communeIdCache.set(normKey, id);
+  return id;
+}
+
+async function matchAndUpdate(client, normLocKey, rawName, pop, csvCommune, stats) {
+  const communeId = await getCommuneId(client, csvCommune);
+
+  // 1a. Exact par nom + commune_id (prioritaire si commune connue)
+  if (communeId) {
+    const { rows } = await client.query(
+      'SELECT id FROM localites WHERE lower(name) = $1 AND commune_id = $2 LIMIT 1',
+      [normLocKey, communeId]
     );
-    stats.matched++;
-    return;
+    if (rows.length > 0) {
+      await client.query(
+        'UPDATE localites SET population = COALESCE(population, 0) + $1 WHERE id = $2',
+        [pop, rows[0].id]
+      );
+      stats.matched++;
+      return;
+    }
+
+    // 1b. ILIKE + commune_id
+    const { rows: r1b } = await client.query(
+      'SELECT id FROM localites WHERE name ILIKE $1 AND commune_id = $2 LIMIT 1',
+      ['%' + rawName + '%', communeId]
+    );
+    if (r1b.length > 0) {
+      await client.query(
+        'UPDATE localites SET population = COALESCE(population, 0) + $1 WHERE id = $2',
+        [pop, r1b[0].id]
+      );
+      stats.matched++;
+      return;
+    }
   }
 
-  // 2. Comparaison exacte avec le nom brut normalisé
-  const { rows: r1b } = await client.query(
-    'SELECT id FROM localites WHERE lower(name) = lower($1) LIMIT 1',
-    [rawName]
-  );
-
-  if (r1b.length > 0) {
-    await client.query(
-      'UPDATE localites SET population = COALESCE(population, 0) + $1 WHERE id = $2',
-      [pop, r1b[0].id]
-    );
-    stats.matched++;
-    return;
-  }
-
-  // 3. ILIKE contient (recherche partielle)
+  // 2. Fallback : exact par nom seul (toutes communes)
   const { rows: r2 } = await client.query(
-    'SELECT id FROM localites WHERE name ILIKE $1 LIMIT 1',
-    ['%' + rawName + '%']
+    'SELECT id FROM localites WHERE lower(name) = $1 LIMIT 1',
+    [normLocKey]
   );
-
   if (r2.length > 0) {
     await client.query(
       'UPDATE localites SET population = COALESCE(population, 0) + $1 WHERE id = $2',
@@ -164,9 +186,23 @@ async function matchAndUpdate(client, normKey, rawName, pop, stats) {
     return;
   }
 
+  // 3. Fallback ILIKE seul
+  const { rows: r3 } = await client.query(
+    'SELECT id FROM localites WHERE name ILIKE $1 LIMIT 1',
+    ['%' + rawName + '%']
+  );
+  if (r3.length > 0) {
+    await client.query(
+      'UPDATE localites SET population = COALESCE(population, 0) + $1 WHERE id = $2',
+      [pop, r3[0].id]
+    );
+    stats.matched++;
+    return;
+  }
+
   stats.unmatched++;
   if (stats.unmatched <= 3) {
-    console.log('      ↳ Non trouvé : "' + rawName + '"');
+    console.log('      \u21b3 Non trouvé : "' + rawName + '" (commune CSV: ' + (csvCommune||'?') + ')');
   }
 }
 
@@ -222,8 +258,8 @@ async function main() {
       const fileStats = { matched: 0, unmatched: 0 };
       await client.query('BEGIN');
 
-      for (const [normKey, { name, pop }] of map) {
-        await matchAndUpdate(client, normKey, name, pop, fileStats);
+      for (const [, { name, pop, commune, normLoc }] of map) {
+        await matchAndUpdate(client, normLoc, name, pop, commune, fileStats);
       }
 
       await client.query('COMMIT');
