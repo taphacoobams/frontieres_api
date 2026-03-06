@@ -19,6 +19,7 @@
     "import-population": "node src/scripts/import-population.js",
     "compute-densite": "node src/scripts/compute-densite.js",
     "populate-all": "npm run migrate && npm run download-ansd && npm run import-population && npm run compute-densite",
+    "fix-population": "node src/scripts/fix-population-matching.js",
     "test": "jest --forceExit --detectOpenHandles"
   },
   "dependencies": {
