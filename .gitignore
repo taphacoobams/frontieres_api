@@ -5,3 +5,7 @@ package-lock.json
 # GeoJSON source files (not needed in repo, only for import)
 *.geojson
 missing-polygons/
+
+# GeoNames data files
+SN.txt
+export.geojson

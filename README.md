@@ -2,7 +2,7 @@
 
 API REST servant les **frontières administratives du Sénégal** au format **GeoJSON**, à partir d'une base **PostgreSQL / PostGIS**.
 
-> **14 régions · 46 départements · 552 communes** — polygones complets, noms alignés sur le référentiel administratif officiel.
+> **14 régions · 46 départements · 552 communes · 16 471 localités** — polygones complets et coordonnées géographiques, noms alignés sur le référentiel administratif officiel.
 
 ---
 
@@ -13,10 +13,12 @@ API REST servant les **frontières administratives du Sénégal** au format **Ge
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Initialisation de la base](#initialisation-de-la-base)
+- [Pipeline des localités](#pipeline-des-localités)
 - [Lancement](#lancement)
 - [Endpoints de l'API](#endpoints-de-lapi)
 - [Format des réponses](#format-des-réponses)
-- [Référentiel administratif](#référentiel-administratif)
+- [Documentation Swagger](#documentation-swagger)
+- [Tests](#tests)
 - [Architecture du projet](#architecture-du-projet)
 - [Optimisations](#optimisations)
 - [Sources de données](#sources-de-données)
@@ -29,10 +31,16 @@ API REST servant les **frontières administratives du Sénégal** au format **Ge
 ## Fonctionnalités
 
 - Polygones **MultiPolygon** pour chaque division administrative du Sénégal
+- **16 471 localités** géolocalisées (quartiers, villages, hameaux)
 - Réponses au format **GeoJSON** (Feature & FeatureCollection), compatibles Leaflet, Mapbox, OpenLayers
-- Filtrage hiérarchique : communes par département, départements par région
+- Filtrage hiérarchique : localités → communes → départements → régions
+- Recherche de localités par nom (`/api/localites/search?q=`)
+- Pagination sur les localités (`limit`, `offset`)
+- Endpoint `/api/stats` avec compteurs temps réel
+- Endpoint `/health` avec vérification de la base de données
+- Documentation **Swagger/OpenAPI** à `/api/docs`
+- **31 tests fonctionnels** (Jest + Supertest)
 - Cache mémoire, compression gzip, rate limiting, sécurité (Helmet)
-- Script d'import automatisé depuis des fichiers GeoJSON sources
 - Fichier `senegal.ts` inclus comme référentiel administratif
 
 ## Prérequis
@@ -76,9 +84,43 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 npm run init-db
 ```
 
-Crée les tables `regions_boundaries`, `departements_boundaries`, `communes_boundaries` avec leurs index spatiaux GIST.
+Crée les tables `regions_boundaries`, `departements_boundaries`, `communes_boundaries`, `localites_geo` avec leurs index spatiaux GIST.
 
-> Les données géographiques (polygones) doivent être importées séparément dans PostGIS depuis des fichiers GeoJSON ([geoBoundaries](https://www.geoboundaries.org/), [OpenStreetMap](https://www.openstreetmap.org/)).
+## Pipeline des localités
+
+Le pipeline importe et géolocalise les localités en 3 étapes :
+
+### Étape 1 — Import SN.txt (GeoNames)
+
+```bash
+npm run import-localites
+```
+
+Importe les populated places depuis `SN.txt` (format GeoNames). Chaque localité est associée à sa commune par intersection spatiale (`ST_Contains`).
+
+### Étape 2 — Correspondance GeoJSON (OSM)
+
+```bash
+npm run match-geojson
+```
+
+Croise les localités avec `localites.geojson` (export Overpass/OSM). Met à jour les coordonnées et insère les localités supplémentaires.
+
+### Étape 3 — Fallback centroid
+
+```bash
+npm run fallback-centroid
+```
+
+Assigne les localités restantes sans commune à la commune la plus proche par distance (`<->`).
+
+**Résultat** : 16 471 localités, toutes avec coordonnées et commune.
+
+| Source | Localités |
+|--------|-----------|
+| SN.txt (GeoNames) | 8 169 |
+| localites.geojson (OSM) | 8 302 |
+| **Total** | **16 471** |
 
 ## Lancement
 
@@ -104,6 +146,18 @@ L'API démarre sur `http://localhost:3005`.
 | `GET` | `/api/communes/:id` | Une commune par ID |
 | `GET` | `/api/communes?departement_id=X` | Communes d'un département |
 
+### Localités
+
+| Méthode | URL | Description |
+|---------|-----|-------------|
+| `GET` | `/api/localites` | Toutes les localités |
+| `GET` | `/api/localites/:id` | Une localité par ID |
+| `GET` | `/api/localites/search?q=Dakar` | Recherche par nom (min 2 car.) |
+| `GET` | `/api/localites?commune_id=X` | Localités d'une commune |
+| `GET` | `/api/localites?departement_id=X` | Localités d'un département |
+| `GET` | `/api/localites?region_id=X` | Localités d'une région |
+| `GET` | `/api/localites?limit=50&offset=0` | Pagination |
+
 ### FeatureCollections (pour cartographie)
 
 | Méthode | URL | Description |
@@ -116,7 +170,9 @@ L'API démarre sur `http://localhost:3005`.
 
 | Méthode | URL | Description |
 |---------|-----|-------------|
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Health check (avec état de la base) |
+| `GET` | `/api/stats` | Statistiques globales |
+| `GET` | `/api/docs` | Documentation Swagger/OpenAPI |
 
 ## Format des réponses
 
@@ -154,6 +210,73 @@ L'API démarre sur `http://localhost:3005`.
 
 Compatible directement avec **Leaflet**, **Mapbox GL**, **OpenLayers**, **D3.js**, etc.
 
+### Localité
+
+```json
+{
+  "id": 7806,
+  "geonameid": 2253354,
+  "name": "Dakar",
+  "commune_id": 63,
+  "departement_id": 7,
+  "region_id": 1,
+  "latitude": 14.6937,
+  "longitude": -17.44406,
+  "source": "sn_txt"
+}
+```
+
+### Health
+
+```json
+{
+  "status": "ok",
+  "service": "frontieres-api",
+  "database": "connected",
+  "timestamp": "2026-03-06T15:00:46.838Z"
+}
+```
+
+### Stats
+
+```json
+{
+  "regions": 14,
+  "departements": 46,
+  "communes": 552,
+  "localites": 16471,
+  "localites_with_coordinates": 16471
+}
+```
+
+## Documentation Swagger
+
+Documentation interactive disponible à :
+
+```
+http://localhost:3005/api/docs
+```
+
+Inclut tous les endpoints, paramètres, schémas et exemples de réponses.
+
+## Tests
+
+```bash
+npm test
+```
+
+**31 tests** répartis en 5 suites :
+
+| Suite | Tests | Vérifie |
+|-------|-------|---------|
+| `health.test.js` | 2 | `/health`, `/api/stats` |
+| `regions.test.js` | 4 | CRUD régions, structure GeoJSON, FeatureCollection |
+| `departements.test.js` | 4 | CRUD départements, filtre `region_id`, FeatureCollection |
+| `communes.test.js` | 4 | CRUD communes, filtre `departement_id`, FeatureCollection |
+| `localites.test.js` | 17 | CRUD localités, recherche, filtres, pagination, coordonnées valides |
+
+Technologies : **Jest** + **Supertest**
+
 ## Référentiel administratif
 
 Le fichier `senegal.ts` contient la liste officielle des 14 régions, 46 départements et 552 communes du Sénégal, structurée hiérarchiquement :
@@ -187,31 +310,47 @@ frontieres_api/
 ├── .env                    # Variables d'environnement (non versionné)
 ├── .gitignore
 ├── package.json
+├── render.yaml             # Blueprint Render
 ├── senegal.ts              # Référentiel administratif officiel
 ├── README.md
+├── tests/                  # Tests fonctionnels
+│   ├── health.test.js
+│   ├── regions.test.js
+│   ├── departements.test.js
+│   ├── communes.test.js
+│   └── localites.test.js
 └── src/
     ├── server.js           # Point d'entrée Express
+    ├── swagger.json        # Spec OpenAPI 3.0
     ├── database/
     │   ├── connection.js   # Pool PostgreSQL (pg)
     │   └── init.js         # Création tables + index PostGIS
     ├── models/
     │   ├── regionBoundary.js
     │   ├── departementBoundary.js
-    │   └── communeBoundary.js
+    │   ├── communeBoundary.js
+    │   └── localiteGeo.js
     ├── services/
     │   ├── regionService.js       # Logique métier + cache mémoire
     │   ├── departementService.js
-    │   └── communeService.js
+    │   ├── communeService.js
+    │   └── localiteService.js
     ├── controllers/
     │   ├── regionController.js    # Handlers HTTP
     │   ├── departementController.js
-    │   └── communeController.js
-    └── routes/
-        ├── index.js               # Agrégation des routes
-        ├── regionRoutes.js
-        ├── departementRoutes.js
-        ├── communeRoutes.js
-        └── mapRoutes.js
+    │   ├── communeController.js
+    │   └── localiteController.js
+    ├── routes/
+    │   ├── index.js               # Agrégation des routes
+    │   ├── regionRoutes.js
+    │   ├── departementRoutes.js
+    │   ├── communeRoutes.js
+    │   ├── localiteRoutes.js
+    │   └── mapRoutes.js
+    └── scripts/
+        ├── import-localites.js    # Import SN.txt → PostGIS
+        ├── match-geojson.js       # Correspondance GeoJSON
+        └── fallback-centroid.js   # Fallback commune proche
 ```
 
 ## Optimisations
@@ -230,7 +369,8 @@ frontieres_api/
 | Source | Utilisation |
 |--------|------------|
 | [geoBoundaries (SEN)](https://www.geoboundaries.org/) | Régions (ADM1) et départements (ADM2) |
-| [OpenStreetMap](https://www.openstreetmap.org/) | Communes (admin_level=8) via Overpass API |
+| [OpenStreetMap](https://www.openstreetmap.org/) | Communes (admin_level=8) et localités via Overpass API |
+| [GeoNames (SN.txt)](https://download.geonames.org/export/dump/) | Localités (populated places) |
 | Référentiel officiel | Noms et hiérarchie (`senegal.ts`) |
 
 ## Déploiement sur Render
@@ -277,7 +417,7 @@ Depuis votre machine locale, exporter les données PostGIS et les importer sur R
 
 ```bash
 # Export depuis votre base locale
-pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries > dump.sql
+pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries -t localites_geo > dump.sql
 
 # Import sur Render (utiliser l'External Database URL)
 pg_restore -d "postgres://user:pass@host/dbname" --no-owner --no-acl dump.sql

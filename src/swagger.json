@@ -1,0 +1,357 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Frontières API – Sénégal",
+    "description": "API REST des frontières administratives du Sénégal (régions, départements, communes, localités) au format GeoJSON, servie depuis PostgreSQL/PostGIS.",
+    "version": "2.0.0",
+    "contact": {
+      "name": "taphacoobams",
+      "url": "https://github.com/taphacoobams/frontieres_api"
+    }
+  },
+  "servers": [
+    { "url": "http://localhost:3005", "description": "Local" }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Statut du service" },
+    { "name": "Stats", "description": "Statistiques globales" },
+    { "name": "Regions", "description": "Régions (14)" },
+    { "name": "Departements", "description": "Départements (46)" },
+    { "name": "Communes", "description": "Communes (552)" },
+    { "name": "Localites", "description": "Localités géolocalisées" },
+    { "name": "Map", "description": "GeoJSON FeatureCollections pour cartographie" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Statut du service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "service": { "type": "string", "example": "frontieres-api" },
+                    "database": { "type": "string", "example": "connected" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Statistiques globales",
+        "responses": {
+          "200": {
+            "description": "Compteurs de toutes les entités",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "regions": { "type": "integer", "example": 14 },
+                    "departements": { "type": "integer", "example": 46 },
+                    "communes": { "type": "integer", "example": 552 },
+                    "localites": { "type": "integer", "example": 16471 },
+                    "localites_with_coordinates": { "type": "integer", "example": 16471 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/regions": {
+      "get": {
+        "tags": ["Regions"],
+        "summary": "Liste de toutes les régions",
+        "responses": {
+          "200": {
+            "description": "Array de GeoJSON Features (régions)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/RegionFeature" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/regions/{id}": {
+      "get": {
+        "tags": ["Regions"],
+        "summary": "Une région par ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON Feature", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegionFeature" } } } },
+          "404": { "description": "Région non trouvée" }
+        }
+      }
+    },
+    "/api/departements": {
+      "get": {
+        "tags": ["Departements"],
+        "summary": "Liste des départements",
+        "parameters": [
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par région" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array de GeoJSON Features (départements)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/DepartementFeature" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/departements/{id}": {
+      "get": {
+        "tags": ["Departements"],
+        "summary": "Un département par ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON Feature", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartementFeature" } } } },
+          "404": { "description": "Département non trouvé" }
+        }
+      }
+    },
+    "/api/communes": {
+      "get": {
+        "tags": ["Communes"],
+        "summary": "Liste des communes",
+        "parameters": [
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par département" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array de GeoJSON Features (communes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CommuneFeature" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/communes/{id}": {
+      "get": {
+        "tags": ["Communes"],
+        "summary": "Une commune par ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON Feature", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CommuneFeature" } } } },
+          "404": { "description": "Commune non trouvée" }
+        }
+      }
+    },
+    "/api/localites": {
+      "get": {
+        "tags": ["Localites"],
+        "summary": "Liste des localités",
+        "parameters": [
+          { "name": "commune_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par commune" },
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par département" },
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par région" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" }, "description": "Nombre max de résultats" },
+          { "name": "offset", "in": "query", "schema": { "type": "integer" }, "description": "Décalage pour pagination" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array de localités",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Localite" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/localites/search": {
+      "get": {
+        "tags": ["Localites"],
+        "summary": "Rechercher des localités par nom",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string", "minLength": 2 }, "description": "Terme de recherche (min 2 caractères)" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 }, "description": "Nombre max de résultats" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Localités correspondantes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Localite" }
+                }
+              }
+            }
+          },
+          "400": { "description": "Paramètre q manquant ou trop court" }
+        }
+      }
+    },
+    "/api/localites/{id}": {
+      "get": {
+        "tags": ["Localites"],
+        "summary": "Une localité par ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Localité", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Localite" } } } },
+          "404": { "description": "Localité non trouvée" }
+        }
+      }
+    },
+    "/api/map/regions": {
+      "get": {
+        "tags": ["Map"],
+        "summary": "FeatureCollection GeoJSON de toutes les régions",
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+        }
+      }
+    },
+    "/api/map/departements": {
+      "get": {
+        "tags": ["Map"],
+        "summary": "FeatureCollection GeoJSON de tous les départements",
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+        }
+      }
+    },
+    "/api/map/communes": {
+      "get": {
+        "tags": ["Map"],
+        "summary": "FeatureCollection GeoJSON de toutes les communes",
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegionFeature": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "example": "Feature" },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "region_id": { "type": "integer" },
+              "name": { "type": "string", "example": "Dakar" }
+            }
+          },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "example": "MultiPolygon" },
+              "coordinates": { "type": "array" }
+            }
+          }
+        }
+      },
+      "DepartementFeature": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "example": "Feature" },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "departement_id": { "type": "integer" },
+              "region_id": { "type": "integer" },
+              "name": { "type": "string", "example": "Dakar" }
+            }
+          },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "example": "MultiPolygon" },
+              "coordinates": { "type": "array" }
+            }
+          }
+        }
+      },
+      "CommuneFeature": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "example": "Feature" },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "commune_id": { "type": "integer" },
+              "departement_id": { "type": "integer" },
+              "name": { "type": "string", "example": "Gorée" }
+            }
+          },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "example": "MultiPolygon" },
+              "coordinates": { "type": "array" }
+            }
+          }
+        }
+      },
+      "Localite": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "geonameid": { "type": "integer" },
+          "name": { "type": "string", "example": "Ngor" },
+          "commune_id": { "type": "integer" },
+          "departement_id": { "type": "integer" },
+          "region_id": { "type": "integer" },
+          "latitude": { "type": "number", "example": 14.75 },
+          "longitude": { "type": "number", "example": -17.52 },
+          "source": { "type": "string", "enum": ["sn_txt", "geojson"], "example": "geojson" }
+        }
+      },
+      "FeatureCollection": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "example": "FeatureCollection" },
+          "features": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    }
+  }
+}
