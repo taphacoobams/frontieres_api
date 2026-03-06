@@ -12,7 +12,7 @@ API REST servant les **frontières administratives du Sénégal** au format **Ge
 - [Prérequis](#prérequis)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Import des données](#import-des-données)
+- [Initialisation de la base](#initialisation-de-la-base)
 - [Lancement](#lancement)
 - [Endpoints de l'API](#endpoints-de-lapi)
 - [Format des réponses](#format-des-réponses)
@@ -20,6 +20,8 @@ API REST servant les **frontières administratives du Sénégal** au format **Ge
 - [Architecture du projet](#architecture-du-projet)
 - [Optimisations](#optimisations)
 - [Sources de données](#sources-de-données)
+- [Déploiement sur Render](#déploiement-sur-render)
+- [Inspiration](#inspiration)
 - [Licence](#licence)
 
 ---
@@ -230,6 +232,70 @@ frontieres_api/
 | [geoBoundaries (SEN)](https://www.geoboundaries.org/) | Régions (ADM1) et départements (ADM2) |
 | [OpenStreetMap](https://www.openstreetmap.org/) | Communes (admin_level=8) via Overpass API |
 | Référentiel officiel | Noms et hiérarchie (`senegal.ts`) |
+
+## Déploiement sur Render
+
+### 1. Créer les services
+
+**Option A — Blueprint (automatique) :**
+
+1. Aller sur [render.com/blueprints](https://dashboard.render.com/blueprints)
+2. Cliquer **New Blueprint Instance**
+3. Connecter le repo `taphacoobams/frontieres_api`
+4. Render détecte `render.yaml` et crée automatiquement la base PostgreSQL + le service web
+
+**Option B — Manuel :**
+
+1. **Créer une base PostgreSQL** :
+   - Dashboard → **New** → **PostgreSQL**
+   - Name : `frontieres-db`
+   - Plan : Free
+   - Valider, puis copier l'**Internal Database URL**
+
+2. **Créer un Web Service** :
+   - Dashboard → **New** → **Web Service**
+   - Connecter le repo GitHub
+   - Runtime : **Node**
+   - Build Command : `npm install && npm run init-db`
+   - Start Command : `node src/server.js`
+   - Ajouter la variable d'environnement :
+     - `DATABASE_URL` = l'Internal Database URL copiée
+
+### 2. Activer PostGIS
+
+Render fournit PostgreSQL mais l'extension PostGIS doit être activée. Dans le **Shell** de la base (Dashboard → base → Shell) :
+
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+```
+
+> **Note :** `npm run init-db` exécute aussi cette commande, mais il est recommandé de le faire manuellement la première fois.
+
+### 3. Importer les données
+
+Depuis votre machine locale, exporter les données PostGIS et les importer sur Render via `pg_dump` / `pg_restore` :
+
+```bash
+# Export depuis votre base locale
+pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries > dump.sql
+
+# Import sur Render (utiliser l'External Database URL)
+pg_restore -d "postgres://user:pass@host/dbname" --no-owner --no-acl dump.sql
+```
+
+L'**External Database URL** se trouve dans le Dashboard Render → PostgreSQL → Info → External Database URL.
+
+### 4. Vérifier
+
+```bash
+curl https://votre-app.onrender.com/health
+# → { "status": "ok", "service": "frontieres-api" }
+
+curl https://votre-app.onrender.com/api/regions
+# → 14 GeoJSON Features
+```
+
+> ⚠️ Le plan **Free** de Render met le service en veille après 15 min d'inactivité. La première requête après une veille prend ~30s.
 
 ## Inspiration
 
