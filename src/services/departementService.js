@@ -1,4 +1,4 @@
-const DepartementBoundary = require('../models/departementBoundary');
+const Departement = require('../models/departement');
 
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000;
@@ -22,14 +22,15 @@ const DepartementService = {
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const rows = await DepartementBoundary.findAll(regionId);
+    const rows = await Departement.findAll(regionId);
     const features = rows.map((row) => ({
       type: 'Feature',
       properties: {
-        id: row.id,
-        departement_id: row.departement_id,
-        region_id: row.region_id,
-        name: row.name,
+        id: row.id, departement_id: row.departement_id,
+        region_id: row.region_id, name: row.name,
+        lat: row.lat, lon: row.lon,
+        superficie_km2: row.superficie_km2,
+        population: row.population, densite: row.densite,
       },
       geometry: row.geometry,
     }));
@@ -38,15 +39,16 @@ const DepartementService = {
   },
 
   async getById(id) {
-    const row = await DepartementBoundary.findById(id);
+    const row = await Departement.findById(id);
     if (!row) return null;
     return {
       type: 'Feature',
       properties: {
-        id: row.id,
-        departement_id: row.departement_id,
-        region_id: row.region_id,
-        name: row.name,
+        id: row.id, departement_id: row.departement_id,
+        region_id: row.region_id, name: row.name,
+        lat: row.lat, lon: row.lon,
+        superficie_km2: row.superficie_km2,
+        population: row.population, densite: row.densite,
       },
       geometry: row.geometry,
     };
@@ -57,7 +59,7 @@ const DepartementService = {
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const fc = await DepartementBoundary.findAllAsFeatureCollection(regionId);
+    const fc = await Departement.findAllAsFeatureCollection(regionId);
     setCache(cacheKey, fc);
     return fc;
   },

@@ -20,6 +20,10 @@ describe('GET /api/localites', () => {
       expect(loc).toHaveProperty('latitude');
       expect(loc).toHaveProperty('longitude');
       expect(loc).toHaveProperty('source');
+      expect(loc).toHaveProperty('superficie_km2');
+      expect(loc).toHaveProperty('population');
+      expect(loc).toHaveProperty('densite');
+      expect(loc).toHaveProperty('geometry');
       expect(typeof loc.latitude).toBe('number');
       expect(typeof loc.longitude).toBe('number');
       expect(loc.latitude).toBeGreaterThanOrEqual(12);

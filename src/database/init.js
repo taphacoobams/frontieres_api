@@ -1,69 +1,108 @@
 const pool = require('./connection');
 
 const initSQL = `
--- Activer PostGIS
+-- Activer PostGIS + unaccent
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- ───────────────────────────────────────────────
 -- Table des régions
-CREATE TABLE IF NOT EXISTS regions_boundaries (
-  id SERIAL PRIMARY KEY,
-  region_id INTEGER,
-  name TEXT NOT NULL,
-  geometry GEOMETRY(MultiPolygon, 4326) NOT NULL,
-  lat DOUBLE PRECISION,
-  lon DOUBLE PRECISION,
-  superficie_km2 DOUBLE PRECISION
+-- ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS regions (
+  id             SERIAL PRIMARY KEY,
+  region_id      INTEGER,
+  name           TEXT NOT NULL,
+  geometry       GEOMETRY(MultiPolygon, 4326),
+  lat            DOUBLE PRECISION,
+  lon            DOUBLE PRECISION,
+  superficie_km2 DOUBLE PRECISION,
+  population     INTEGER,
+  densite        DOUBLE PRECISION
 );
 
+-- ───────────────────────────────────────────────
 -- Table des départements
-CREATE TABLE IF NOT EXISTS departements_boundaries (
-  id SERIAL PRIMARY KEY,
-  departement_id INTEGER,
-  region_id INTEGER,
-  name TEXT NOT NULL,
-  geometry GEOMETRY(MultiPolygon, 4326) NOT NULL,
-  lat DOUBLE PRECISION,
-  lon DOUBLE PRECISION,
-  superficie_km2 DOUBLE PRECISION
+-- ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS departements (
+  id               SERIAL PRIMARY KEY,
+  departement_id   INTEGER,
+  region_id        INTEGER,
+  name             TEXT NOT NULL,
+  geometry         GEOMETRY(MultiPolygon, 4326),
+  lat              DOUBLE PRECISION,
+  lon              DOUBLE PRECISION,
+  superficie_km2   DOUBLE PRECISION,
+  population       INTEGER,
+  densite          DOUBLE PRECISION
 );
 
+-- ───────────────────────────────────────────────
 -- Table des communes
-CREATE TABLE IF NOT EXISTS communes_boundaries (
-  id SERIAL PRIMARY KEY,
-  commune_id INTEGER,
-  departement_id INTEGER,
-  name TEXT NOT NULL,
-  geometry GEOMETRY(MultiPolygon, 4326) NOT NULL,
-  lat DOUBLE PRECISION,
-  lon DOUBLE PRECISION,
-  superficie_km2 DOUBLE PRECISION
+-- ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS communes (
+  id               SERIAL PRIMARY KEY,
+  commune_id       INTEGER,
+  departement_id   INTEGER,
+  name             TEXT NOT NULL,
+  geometry         GEOMETRY(MultiPolygon, 4326),
+  lat              DOUBLE PRECISION,
+  lon              DOUBLE PRECISION,
+  superficie_km2   DOUBLE PRECISION,
+  population       INTEGER,
+  densite          DOUBLE PRECISION
 );
 
--- Index spatiaux
+-- ───────────────────────────────────────────────
+-- Table des localités
+-- ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS localites (
+  id               SERIAL PRIMARY KEY,
+  name             TEXT NOT NULL,
+  commune_id       INTEGER,
+  departement_id   INTEGER,
+  region_id        INTEGER,
+  latitude         DOUBLE PRECISION,
+  longitude        DOUBLE PRECISION,
+  source           TEXT,
+  elevation        INTEGER,
+  geometry         GEOMETRY(MultiPolygon, 4326),
+  superficie_km2   DOUBLE PRECISION,
+  population       INTEGER,
+  densite          DOUBLE PRECISION
+);
+
+-- ───────────────────────────────────────────────
+-- Index spatiaux GIST
+-- ───────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_regions_geom
-  ON regions_boundaries USING GIST (geometry);
+  ON regions USING GIST (geometry);
 
 CREATE INDEX IF NOT EXISTS idx_departements_geom
-  ON departements_boundaries USING GIST (geometry);
+  ON departements USING GIST (geometry);
 
 CREATE INDEX IF NOT EXISTS idx_communes_geom
-  ON communes_boundaries USING GIST (geometry);
+  ON communes USING GIST (geometry);
 
--- Table des localités
-CREATE TABLE IF NOT EXISTS localites (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  commune_id INTEGER,
-  departement_id INTEGER,
-  region_id INTEGER,
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  source TEXT,
-  elevation INTEGER,
-  geom_point   GEOMETRY(Point, 4326),
-  geom_polygon GEOMETRY(Geometry, 4326),
-  superficie_km2 DOUBLE PRECISION
-);
+CREATE INDEX IF NOT EXISTS idx_localites_geom
+  ON localites USING GIST (geometry);
+
+-- ───────────────────────────────────────────────
+-- Index sur les clés de liaison
+-- ───────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_regions_region_id
+  ON regions (region_id);
+
+CREATE INDEX IF NOT EXISTS idx_departements_region_id
+  ON departements (region_id);
+
+CREATE INDEX IF NOT EXISTS idx_departements_dept_id
+  ON departements (departement_id);
+
+CREATE INDEX IF NOT EXISTS idx_communes_departement_id
+  ON communes (departement_id);
+
+CREATE INDEX IF NOT EXISTS idx_communes_commune_id
+  ON communes (commune_id);
 
 CREATE INDEX IF NOT EXISTS idx_localites_commune_id
   ON localites (commune_id);
@@ -76,28 +115,6 @@ CREATE INDEX IF NOT EXISTS idx_localites_region_id
 
 CREATE INDEX IF NOT EXISTS idx_localites_name
   ON localites (name);
-
-CREATE INDEX IF NOT EXISTS idx_localites_geom_point
-  ON localites USING GIST (geom_point);
-
-CREATE INDEX IF NOT EXISTS idx_localites_geom_polygon
-  ON localites USING GIST (geom_polygon);
-
--- Index sur les clés de liaison
-CREATE INDEX IF NOT EXISTS idx_regions_region_id
-  ON regions_boundaries (region_id);
-
-CREATE INDEX IF NOT EXISTS idx_departements_departement_id
-  ON departements_boundaries (departement_id);
-
-CREATE INDEX IF NOT EXISTS idx_departements_region_id
-  ON departements_boundaries (region_id);
-
-CREATE INDEX IF NOT EXISTS idx_communes_commune_id
-  ON communes_boundaries (commune_id);
-
-CREATE INDEX IF NOT EXISTS idx_communes_departement_id
-  ON communes_boundaries (departement_id);
 `;
 
 async function initDatabase() {

@@ -16,6 +16,9 @@ describe('GET /api/regions', () => {
       expect(feature.properties).toHaveProperty('id');
       expect(feature.properties).toHaveProperty('region_id');
       expect(feature.properties).toHaveProperty('name');
+      expect(feature.properties).toHaveProperty('superficie_km2');
+      expect(feature.properties).toHaveProperty('population');
+      expect(feature.properties).toHaveProperty('densite');
       expect(feature.geometry).toHaveProperty('type', 'MultiPolygon');
       expect(feature.geometry).toHaveProperty('coordinates');
       expect(Array.isArray(feature.geometry.coordinates)).toBe(true);

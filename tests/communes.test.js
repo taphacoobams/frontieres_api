@@ -18,6 +18,9 @@ describe('GET /api/communes', () => {
       expect(feature.properties).toHaveProperty('commune_id');
       expect(feature.properties).toHaveProperty('departement_id');
       expect(feature.properties).toHaveProperty('name');
+      expect(feature.properties).toHaveProperty('superficie_km2');
+      expect(feature.properties).toHaveProperty('population');
+      expect(feature.properties).toHaveProperty('densite');
       expect(feature.geometry).toHaveProperty('type', 'MultiPolygon');
       expect(feature.geometry).toHaveProperty('coordinates');
     }

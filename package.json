@@ -1,6 +1,6 @@
 {
   "name": "frontieres-api",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "API des frontières administratives du Sénégal (polygones PostGIS)",
   "main": "src/server.js",
   "scripts": {
@@ -14,6 +14,11 @@
     "add-attributes": "node src/scripts/add-attributes.js",
     "voronoi-localites": "node src/scripts/voronoi-localites.js",
     "enrich-all": "node src/scripts/update-departements.js && node src/scripts/fix-pikine-communes.js && node src/scripts/add-attributes.js && node src/scripts/voronoi-localites.js",
+    "migrate": "node src/scripts/migrate-tables.js",
+    "download-ansd": "node src/scripts/download-ansd-csv.js",
+    "import-population": "node src/scripts/import-population.js",
+    "compute-densite": "node src/scripts/compute-densite.js",
+    "populate-all": "npm run migrate && npm run download-ansd && npm run import-population && npm run compute-densite",
     "test": "jest --forceExit --detectOpenHandles"
   },
   "dependencies": {

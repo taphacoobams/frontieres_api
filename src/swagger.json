@@ -3,7 +3,7 @@
   "info": {
     "title": "Frontières API – Sénégal",
     "description": "API REST des frontières administratives du Sénégal. Fournit les polygones géographiques (GeoJSON) et les données des 14 régions, 46 départements, 552 communes et 25 515 localités du Sénégal.",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "contact": {
       "name": "taphacoobams",
       "url": "https://github.com/taphacoobams/frontieres_api",
@@ -63,7 +63,8 @@
                     "departements": { "type": "integer", "example": 46 },
                     "communes": { "type": "integer", "example": 552 },
                     "localites": { "type": "integer", "example": 25515 },
-                    "localites_with_coordinates": { "type": "integer", "example": 25515 }
+                    "localites_with_coordinates": { "type": "integer", "example": 25515 },
+                    "localites_with_population": { "type": "integer", "example": 18000 }
                   }
                 }
               }
@@ -294,7 +295,9 @@
               "name": { "type": "string", "example": "Dakar" },
               "lat": { "type": "number", "example": 14.739 },
               "lon": { "type": "number", "example": -17.246 },
-              "superficie_km2": { "type": "number", "example": 541.65 }
+              "superficie_km2": { "type": "number", "example": 541.65 },
+              "population": { "type": "integer", "example": 3900000 },
+              "densite": { "type": "number", "example": 7208.5 }
             }
           },
           "geometry": {
@@ -319,7 +322,9 @@
               "name": { "type": "string", "example": "Dakar" },
               "lat": { "type": "number", "example": 14.711 },
               "lon": { "type": "number", "example": -17.459 },
-              "superficie_km2": { "type": "number", "example": 78.48 }
+              "superficie_km2": { "type": "number", "example": 78.48 },
+              "population": { "type": "integer", "example": 1200000 },
+              "densite": { "type": "number", "example": 15290.3 }
             }
           },
           "geometry": {
@@ -344,7 +349,9 @@
               "name": { "type": "string", "example": "Gorée" },
               "lat": { "type": "number", "example": 14.668 },
               "lon": { "type": "number", "example": -17.398 },
-              "superficie_km2": { "type": "number", "example": 18.5 }
+              "superficie_km2": { "type": "number", "example": 18.5 },
+              "population": { "type": "integer", "example": 1200 },
+              "densite": { "type": "number", "example": 64.9 }
             }
           },
           "geometry": {
@@ -368,9 +375,10 @@
           "longitude": { "type": "number", "example": -17.52 },
           "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "commune_polygon_random"], "example": "sn_txt" },
           "elevation": { "type": "integer", "example": 24, "description": "Élévation en mètres (SRTM30m via opentopodata)" },
-          "geom_point": { "type": "object", "description": "GeoJSON Point de la localité" },
-          "geom_polygon": { "type": "object", "description": "GeoJSON Polygon Voronoï limité à la commune" },
-          "superficie_km2": { "type": "number", "example": 7.69, "description": "Superficie du polygone Voronoï (km²)" }
+          "geometry": { "type": "object", "description": "GeoJSON MultiPolygon Voronoï (limité à la commune)" },
+          "superficie_km2": { "type": "number", "example": 7.69, "description": "Superficie du polygone Voronoï (km²)" },
+          "population": { "type": "integer", "example": 350, "description": "Population issue du recensement ANSD 2023" },
+          "densite": { "type": "number", "example": 45.5, "description": "Densité (hab/km²)" }
         }
       },
       "FeatureCollection": {
