@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS localites (
   region_id INTEGER,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
-  source TEXT
+  source TEXT,
+  elevation INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_localites_commune_id

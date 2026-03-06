@@ -4,7 +4,7 @@ const LocaliteGeo = {
   async findAll({ communeId, departementId, regionId, limit, offset } = {}) {
     let query = `
       SELECT id, name, commune_id, departement_id, region_id,
-             latitude, longitude, source
+             latitude, longitude, source, elevation
       FROM localites
     `;
     const conditions = [];
@@ -46,7 +46,7 @@ const LocaliteGeo = {
   async findById(id) {
     const result = await pool.query(`
       SELECT id, name, commune_id, departement_id, region_id,
-             latitude, longitude, source
+             latitude, longitude, source, elevation
       FROM localites
       WHERE id = $1
     `, [id]);
@@ -56,7 +56,7 @@ const LocaliteGeo = {
   async search(q, { limit = 50 } = {}) {
     const result = await pool.query(`
       SELECT id, name, commune_id, departement_id, region_id,
-             latitude, longitude, source
+             latitude, longitude, source, elevation
       FROM localites
       WHERE name ILIKE $1
       ORDER BY name

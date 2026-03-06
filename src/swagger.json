@@ -342,7 +342,8 @@
           "region_id": { "type": "integer" },
           "latitude": { "type": "number", "example": 14.75 },
           "longitude": { "type": "number", "example": -17.52 },
-          "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "commune_polygon_random"], "example": "sn_txt" }
+          "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "commune_polygon_random"], "example": "sn_txt" },
+          "elevation": { "type": "integer", "example": 24, "description": "Élévation en mètres (SRTM30m via opentopodata)" }
         }
       },
       "FeatureCollection": {
