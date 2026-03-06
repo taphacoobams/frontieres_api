@@ -263,6 +263,21 @@
           "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
         }
       }
+    },
+    "/api/map/localites": {
+      "get": {
+        "tags": ["Map"],
+        "summary": "FeatureCollection GeoJSON des localités (polygones Voronoï)",
+        "parameters": [
+          { "name": "commune_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par commune" },
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par département" },
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par région" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 500 }, "description": "Nombre max de features" }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+        }
+      }
     }
   },
   "components": {
@@ -276,7 +291,10 @@
             "properties": {
               "id": { "type": "integer" },
               "region_id": { "type": "integer" },
-              "name": { "type": "string", "example": "Dakar" }
+              "name": { "type": "string", "example": "Dakar" },
+              "lat": { "type": "number", "example": 14.739 },
+              "lon": { "type": "number", "example": -17.246 },
+              "superficie_km2": { "type": "number", "example": 541.65 }
             }
           },
           "geometry": {
@@ -298,7 +316,10 @@
               "id": { "type": "integer" },
               "departement_id": { "type": "integer" },
               "region_id": { "type": "integer" },
-              "name": { "type": "string", "example": "Dakar" }
+              "name": { "type": "string", "example": "Dakar" },
+              "lat": { "type": "number", "example": 14.711 },
+              "lon": { "type": "number", "example": -17.459 },
+              "superficie_km2": { "type": "number", "example": 78.48 }
             }
           },
           "geometry": {
@@ -320,7 +341,10 @@
               "id": { "type": "integer" },
               "commune_id": { "type": "integer" },
               "departement_id": { "type": "integer" },
-              "name": { "type": "string", "example": "Gorée" }
+              "name": { "type": "string", "example": "Gorée" },
+              "lat": { "type": "number", "example": 14.668 },
+              "lon": { "type": "number", "example": -17.398 },
+              "superficie_km2": { "type": "number", "example": 18.5 }
             }
           },
           "geometry": {
@@ -343,7 +367,10 @@
           "latitude": { "type": "number", "example": 14.75 },
           "longitude": { "type": "number", "example": -17.52 },
           "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "commune_polygon_random"], "example": "sn_txt" },
-          "elevation": { "type": "integer", "example": 24, "description": "Élévation en mètres (SRTM30m via opentopodata)" }
+          "elevation": { "type": "integer", "example": 24, "description": "Élévation en mètres (SRTM30m via opentopodata)" },
+          "geom_point": { "type": "object", "description": "GeoJSON Point de la localité" },
+          "geom_polygon": { "type": "object", "description": "GeoJSON Polygon Voronoï limité à la commune" },
+          "superficie_km2": { "type": "number", "example": 7.69, "description": "Superficie du polygone Voronoï (km²)" }
         }
       },
       "FeatureCollection": {
