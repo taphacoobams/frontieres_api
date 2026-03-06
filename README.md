@@ -2,7 +2,7 @@
 
 API REST servant les **frontières administratives du Sénégal** au format **GeoJSON**, à partir d'une base **PostgreSQL / PostGIS**.
 
-> **14 régions · 46 départements · 552 communes · 19 795 localités** — polygones complets et coordonnées géographiques, noms alignés sur le référentiel administratif officiel.
+> **14 régions · 46 départements · 552 communes · 25 515 localités** — polygones complets et coordonnées géographiques, noms alignés sur le référentiel administratif officiel.
 
 ---
 
@@ -31,7 +31,7 @@ API REST servant les **frontières administratives du Sénégal** au format **Ge
 ## Fonctionnalités
 
 - Polygones **MultiPolygon** pour chaque division administrative du Sénégal
-- **19 795 localités** géolocalisées (quartiers, villages, hameaux)
+- **25 515 localités** géolocalisées (quartiers, villages, hameaux)
 - Réponses au format **GeoJSON** (Feature & FeatureCollection), compatibles Leaflet, Mapbox, OpenLayers
 - Filtrage hiérarchique : localités → communes → départements → régions
 - Recherche de localités par nom (`/api/localites/search?q=`)
@@ -89,43 +89,26 @@ Crée les tables `regions_boundaries`, `departements_boundaries`, `communes_boun
 
 ## Pipeline des localités
 
-Le pipeline importe et géolocalise les localités en 3 étapes :
-
-### Étape 1 — Import SN.txt (GeoNames)
+Le fichier `senegal.ts` contient les **25 515 localités** avec leur hiérarchie commune/département/région. Le script unique reconstruit toute la table :
 
 ```bash
-npm run import-localites
+npm run rebuild-localites
 ```
 
-Importe **toutes** les entrées depuis `SN.txt` (format GeoNames, 14 102 lieux). Chaque localité est associée à sa commune par intersection spatiale (`ST_Contains`). Source : `openstreetmap`.
+Le script effectue automatiquement :
 
-### Étape 2 — Correspondance GeoJSON (OSM)
+1. **Parse `senegal.ts`** → 25 515 localités avec correspondance commune
+2. **Mapping commune** → association avec les `commune_id` en base (552/552 mappées)
+3. **Recherche de coordonnées** dans `SN.txt` (GeoNames) et `localites.geojson` (OSM)
+4. **Fallback centroïde** de la commune pour les localités sans coordonnées OSM
 
-```bash
-npm run match-geojson
-```
+**Résultat** : 25 515 localités, toutes avec coordonnées et commune.
 
-Croise avec `localites.geojson` (export Overpass/OSM). Insère les localités supplémentaires non présentes en base. Source : `openstreetmap`.
-
-### Étape 3 — Fallback centroid
-
-```bash
-npm run fallback-centroid
-```
-
-Assigne les localités sans commune à la commune la plus proche par distance (`<->`). Les localités sans coordonnées reçoivent le centroïde de leur commune avec la source `centroide_commune`.
-
-**Résultat** : 19 795 localités, toutes avec coordonnées et commune.
-
-| Source | Localités |
-|--------|-----------|
-| SN.txt (GeoNames) | 14 102 |
-| localites.geojson (OSM) | 5 693 |
-| **Total** | **19 795** |
-
-Chaque localité porte un champ `source` :
-- `openstreetmap` — coordonnées provenant d'OSM / GeoNames
-- `centroide_commune` — centroïde du polygone de la commune (fallback)
+| Source | Localités | Description |
+|--------|-----------|-------------|
+| `openstreetmap` | 5 067 | Coordonnées trouvées dans SN.txt ou localites.geojson |
+| `centroide_commune` | 20 448 | Centroïde du polygone de la commune |
+| **Total** | **25 515** | |
 
 ## Lancement
 
@@ -249,8 +232,8 @@ Compatible directement avec **Leaflet**, **Mapbox GL**, **OpenLayers**, **D3.js*
   "regions": 14,
   "departements": 46,
   "communes": 552,
-  "localites": 19795,
-  "localites_with_coordinates": 19795
+  "localites": 25515,
+  "localites_with_coordinates": 25515
 }
 ```
 

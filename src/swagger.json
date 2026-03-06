@@ -61,8 +61,8 @@
                     "regions": { "type": "integer", "example": 14 },
                     "departements": { "type": "integer", "example": 46 },
                     "communes": { "type": "integer", "example": 552 },
-                    "localites": { "type": "integer", "example": 19795 },
-                    "localites_with_coordinates": { "type": "integer", "example": 19795 }
+                    "localites": { "type": "integer", "example": 25515 },
+                    "localites_with_coordinates": { "type": "integer", "example": 25515 }
                   }
                 }
               }
