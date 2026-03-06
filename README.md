@@ -68,9 +68,7 @@ CREATE DATABASE frontieres_db;
 CREATE EXTENSION IF NOT EXISTS postgis;
 ```
 
-## Import des données
-
-### 1. Initialiser les tables
+## Initialisation de la base
 
 ```bash
 npm run init-db
@@ -78,25 +76,7 @@ npm run init-db
 
 Crée les tables `regions_boundaries`, `departements_boundaries`, `communes_boundaries` avec leurs index spatiaux GIST.
 
-### 2. Préparer les fichiers GeoJSON
-
-Placer les fichiers sources à la racine du projet :
-
-| Fichier | Source | Contenu |
-|---------|--------|---------|
-| `geoBoundaries-SEN-ADM1_simplified.geojson` | [geoBoundaries](https://www.geoboundaries.org/) | Régions (14) |
-| `geoBoundaries-SEN-ADM2_simplified.geojson` | geoBoundaries | Départements (45) |
-| `communes.geojson` | OpenStreetMap / Overpass API | Communes (548+) |
-
-> Les fichiers GeoJSON ne sont pas inclus dans le dépôt (listés dans `.gitignore`). Ils ne sont nécessaires que pour l'import initial.
-
-### 3. Importer
-
-```bash
-npm run import
-```
-
-Le script nettoie les noms, convertit les géométries en MultiPolygon, et associe automatiquement chaque entité à son parent par intersection spatiale (`ST_Intersects`).
+> Les données géographiques (polygones) doivent être importées séparément dans PostGIS depuis des fichiers GeoJSON ([geoBoundaries](https://www.geoboundaries.org/), [OpenStreetMap](https://www.openstreetmap.org/)).
 
 ## Lancement
 
@@ -224,14 +204,12 @@ frontieres_api/
     │   ├── regionController.js    # Handlers HTTP
     │   ├── departementController.js
     │   └── communeController.js
-    ├── routes/
-    │   ├── index.js               # Agrégation des routes
-    │   ├── regionRoutes.js
-    │   ├── departementRoutes.js
-    │   ├── communeRoutes.js
-    │   └── mapRoutes.js
-    └── scripts/
-        └── import-geojson.js      # Import GeoJSON → PostGIS
+    └── routes/
+        ├── index.js               # Agrégation des routes
+        ├── regionRoutes.js
+        ├── departementRoutes.js
+        ├── communeRoutes.js
+        └── mapRoutes.js
 ```
 
 ## Optimisations
@@ -252,6 +230,10 @@ frontieres_api/
 | [geoBoundaries (SEN)](https://www.geoboundaries.org/) | Régions (ADM1) et départements (ADM2) |
 | [OpenStreetMap](https://www.openstreetmap.org/) | Communes (admin_level=8) via Overpass API |
 | Référentiel officiel | Noms et hiérarchie (`senegal.ts`) |
+
+## Inspiration
+
+Ce projet est inspiré par [**decoupage_administratif_api**](https://github.com/TheShvdow/decoupage_administratif_api) de [@TheShvdow](https://github.com/TheShvdow), une API du découpage administratif du Sénégal. L'idée était d'aller plus loin en ajoutant les **polygones géographiques** (frontières) de chaque entité administrative, permettant ainsi la visualisation cartographique directe.
 
 ## Licence
 
