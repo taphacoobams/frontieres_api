@@ -342,7 +342,7 @@
           "region_id": { "type": "integer" },
           "latitude": { "type": "number", "example": 14.75 },
           "longitude": { "type": "number", "example": -17.52 },
-          "source": { "type": "string", "enum": ["openstreetmap", "centroide_commune"], "example": "openstreetmap" }
+          "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "centroide_commune"], "example": "sn_txt" }
         }
       },
       "FeatureCollection": {

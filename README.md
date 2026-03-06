@@ -39,7 +39,7 @@ API REST servant les **frontières administratives du Sénégal** au format **Ge
 - Endpoint `/api/stats` avec compteurs temps réel
 - Endpoint `/health` avec vérification de la base de données
 - Documentation **Swagger/OpenAPI** à `/api/docs`
-- Sources : `openstreetmap` (coords OSM/GeoNames) et `centroide_commune` (fallback)
+- 4 sources de coordonnées : `sn_txt`, `osm_geojson`, `osm_geojson_estimated`, `centroide_commune`
 - **31 tests fonctionnels** (Jest + Supertest)
 - Cache mémoire, compression gzip, rate limiting, sécurité (Helmet)
 - Fichier `senegal.ts` inclus comme référentiel administratif
@@ -95,19 +95,22 @@ Le fichier `senegal.ts` contient les **25 515 localités** avec leur hiérarchie
 npm run rebuild-localites
 ```
 
-Le script effectue automatiquement :
+Le script effectue automatiquement 5 étapes :
 
-1. **Parse `senegal.ts`** → 25 515 localités avec correspondance commune
-2. **Mapping commune** → association avec les `commune_id` en base (552/552 mappées)
-3. **Recherche de coordonnées** dans `SN.txt` (GeoNames) et `localites.geojson` (OSM)
-4. **Fallback centroïde** de la commune pour les localités sans coordonnées OSM
+1. **Parse `senegal.ts`** → insertion des 25 515 localités (coords NULL)
+2. **SN.txt (GeoNames)** → géocodage par nom → source `sn_txt`
+3. **localites.geojson (avec name)** → géocodage des restantes → source `osm_geojson`
+4. **localites.geojson (sans name)** → estimation par commune (ST_Contains) → source `osm_geojson_estimated`
+5. **Fallback centroïde** de la commune → source `centroide_commune`
 
 **Résultat** : 25 515 localités, toutes avec coordonnées et commune.
 
 | Source | Localités | Description |
 |--------|-----------|-------------|
-| `openstreetmap` | 5 067 | Coordonnées trouvées dans SN.txt ou localites.geojson |
-| `centroide_commune` | 20 448 | Centroïde du polygone de la commune |
+| `sn_txt` | 3 413 | Coordonnées trouvées dans SN.txt (GeoNames) |
+| `osm_geojson` | 1 955 | Coordonnées trouvées dans localites.geojson (par nom) |
+| `osm_geojson_estimated` | 4 857 | Points GeoJSON sans nom, assignés par commune |
+| `centroide_commune` | 15 290 | Centroïde du polygone de la commune |
 | **Total** | **25 515** | |
 
 ## Lancement
@@ -336,9 +339,7 @@ frontieres_api/
     │   ├── localiteRoutes.js
     │   └── mapRoutes.js
     └── scripts/
-        ├── import-localites.js    # Import SN.txt → PostGIS
-        ├── match-geojson.js       # Correspondance GeoJSON
-        └── fallback-centroid.js   # Fallback commune proche
+        └── rebuild-localites.js   # Pipeline complet (5 étapes)
 ```
 
 ## Optimisations
