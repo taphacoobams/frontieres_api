@@ -114,7 +114,7 @@ Le fichier `render.yaml` est inclus pour le déploiement automatique via [Render
 
 ```bash
 # Export depuis votre base locale
-pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries -t localites_geo > dump.sql
+pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries -t localites > dump.sql
 
 # Import sur Render (utiliser l'External Database URL)
 pg_restore -d "postgres://user:pass@host/dbname" --no-owner --no-acl dump.sql
@@ -190,20 +190,22 @@ Le fichier `senegal.ts` contient les **25 515 localités** avec leur hiérarchie
 npm run rebuild-localites
 ```
 
-Le script effectue automatiquement 5 étapes :
+Le script effectue automatiquement 7 étapes :
 
 1. **Parse `senegal.ts`** → insertion des 25 515 localités (coords NULL)
-2. **SN.txt (GeoNames)** → géocodage par nom → source `sn_txt`
-3. **localites.geojson (avec name)** → géocodage des restantes → source `osm_geojson`
-4. **localites.geojson (sans name)** → estimation par commune (ST_Contains) → source `osm_geojson_estimated`
-5. **Fallback centroïde** de la commune → source `centroide_commune`
+2. **Normalisation des noms** → suppression accents, tirets, ponctuation
+3. **SN.txt (GeoNames, feature_class=P)** → géocodage par nom → source `sn_txt`
+4. **communes.json** → chargement des centres communes (pour filtrage étape 6)
+5. **localites.geojson (avec name, place=village|hamlet|neighbourhood)** → source `osm_geojson`
+6. **localites.geojson (sans name)** → estimation par commune, skip si proche centre → source `osm_geojson_estimated`
+7. **Distribution spatiale** → points uniques dans le polygone commune (ST_GeneratePoints) → source `commune_polygon_random`
 
 | Source | Localités | Description |
 |--------|-----------|-------------|
-| `sn_txt` | 3 413 | Coordonnées trouvées dans SN.txt (GeoNames) |
-| `osm_geojson` | 1 955 | Coordonnées trouvées dans localites.geojson (par nom) |
-| `osm_geojson_estimated` | 4 857 | Points GeoJSON sans nom, assignés par commune |
-| `centroide_commune` | 15 290 | Centroïde du polygone de la commune |
+| `sn_txt` | 3 367 | Coordonnées depuis SN.txt (GeoNames, populated places) |
+| `osm_geojson` | 1 980 | Coordonnées depuis localites.geojson (par nom) |
+| `osm_geojson_estimated` | 4 676 | Points GeoJSON sans nom, assignés par commune |
+| `commune_polygon_random` | 15 492 | Points uniques générés dans le polygone commune |
 | **Total** | **25 515** | |
 
 ---

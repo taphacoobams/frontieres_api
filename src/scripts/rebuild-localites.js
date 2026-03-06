@@ -1,11 +1,13 @@
 /**
- * Reconstruction complète de localites_geo depuis senegal.ts
+ * Reconstruction complète de la table localites depuis senegal.ts
  *
  * Étape 1 — Insérer les 25 515 localités depuis senegal.ts (coords NULL)
- * Étape 2 — Géocoder via SN.txt           → source = "sn_txt"
- * Étape 3 — Géocoder via localites.geojson (avec name) → source = "osm_geojson"
- * Étape 4 — Points GeoJSON sans name       → source = "osm_geojson_estimated"
- * Étape 5 — Fallback centroïde commune     → source = "centroide_commune"
+ * Étape 2 — Normalisation des noms (accents, tirets, apostrophes)
+ * Étape 3 — Import coordonnées depuis SN.txt (feature_class=P) → source "sn_txt"
+ * Étape 4 — Charger communes.json (centres communes pour filtrage étape 6)
+ * Étape 5 — Import localites.geojson (place=village|hamlet|neighbourhood|suburb|quarter, avec name) → source "osm_geojson"
+ * Étape 6 — Points GeoJSON sans name, skip si proche centre commune → source "osm_geojson_estimated"
+ * Étape 7 — Distribution spatiale : points uniques dans le polygone commune → source "commune_polygon_random"
  */
 
 const fs = require('fs');
@@ -13,18 +15,30 @@ const path = require('path');
 const pool = require('../database/connection');
 
 const BATCH_SIZE = 500;
+const COMMUNE_CENTER_THRESHOLD_KM = 0.5; // 500m
 
 // ──────────────────────────── Helpers ────────────────────────────
 
 function normalize(str) {
   if (!str) return '';
   return str
-    .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[-_'/().]/g, ' ')
+    .replace(/[-']/g, ' ')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .toLowerCase();
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function parseSenegalTs(filePath) {
@@ -36,6 +50,9 @@ function parseSenegalTs(filePath) {
   return JSON.parse(raw);
 }
 
+const VALID_PLACE_TYPES = new Set(['village', 'hamlet', 'neighbourhood', 'suburb', 'quarter']);
+const VALID_FEATURE_CODES = new Set(['PPL', 'PPLX', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4']);
+
 // ──────────────────────────── Main ────────────────────────────
 
 async function main() {
@@ -46,7 +63,7 @@ async function main() {
     // ================================================================
     // ÉTAPE 1 — Insérer toutes les localités depuis senegal.ts
     // ================================================================
-    console.log('=== ÉTAPE 1 : Insertion des localités depuis senegal.ts ===');
+    console.log('\n=== ÉTAPE 1 : Insertion des localités depuis senegal.ts ===');
 
     const tsPath = path.resolve(__dirname, '..', '..', 'senegal.ts');
     const regions = parseSenegalTs(tsPath);
@@ -104,16 +121,28 @@ async function main() {
     report.totalSenegalTs = allLocalites.length;
     console.log(`  Localités extraites : ${allLocalites.length}`);
 
-    // TRUNCATE + INSERT
-    await client.query('TRUNCATE localites_geo RESTART IDENTITY');
+    // Drop + recreate table
+    await client.query('DROP TABLE IF EXISTS localites CASCADE');
+    await client.query(`
+      CREATE TABLE localites (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        commune_id INTEGER,
+        departement_id INTEGER,
+        region_id INTEGER,
+        latitude DOUBLE PRECISION,
+        longitude DOUBLE PRECISION,
+        source TEXT
+      )
+    `);
 
     for (let i = 0; i < allLocalites.length; i += BATCH_SIZE) {
       const batch = allLocalites.slice(i, i + BATCH_SIZE);
       await client.query('BEGIN');
       for (const loc of batch) {
         await client.query(
-          `INSERT INTO localites_geo (name, commune_id, departement_id, region_id, latitude, longitude, source)
-           VALUES ($1, $2, $3, $4, NULL, NULL, NULL)`,
+          `INSERT INTO localites (name, commune_id, departement_id, region_id)
+           VALUES ($1, $2, $3, $4)`,
           [loc.name, loc.commune_id, loc.departement_id, loc.region_id]
         );
       }
@@ -121,26 +150,43 @@ async function main() {
       process.stdout.write(`\r  Insérées : ${Math.min(i + BATCH_SIZE, allLocalites.length)}/${allLocalites.length}`);
     }
 
-    const countCheck = await client.query('SELECT COUNT(*) AS c FROM localites_geo');
-    console.log(`\n  ✓ Table localites_geo : ${countCheck.rows[0].c} lignes\n`);
+    const countCheck = await client.query('SELECT COUNT(*) AS c FROM localites');
+    console.log(`\n  ✓ Table localites : ${countCheck.rows[0].c} lignes`);
 
     // ================================================================
-    // ÉTAPE 2 — Géocodage via SN.txt
+    // ÉTAPE 2 — Normalisation (affichage info)
     // ================================================================
-    console.log('=== ÉTAPE 2 : Coordonnées depuis SN.txt ===');
+    console.log('\n=== ÉTAPE 2 : Normalisation des noms ===');
+    console.log('  Méthode : suppression accents, tirets→espaces, ponctuation, espaces multiples');
+    console.log('  Fonction normalize() appliquée à toutes les comparaisons');
+
+    // ================================================================
+    // ÉTAPE 3 — Import coordonnées depuis SN.txt (feature_class=P)
+    // ================================================================
+    console.log('\n=== ÉTAPE 3 : Coordonnées depuis SN.txt (feature_class=P) ===');
 
     const snPath = path.resolve(__dirname, '..', '..', 'SN.txt');
     const snRaw = fs.readFileSync(snPath, 'utf-8');
     const snLines = snRaw.split('\n').filter(l => l.trim());
 
     report.snLinesRead = snLines.length;
-    console.log(`  Lignes lues dans SN.txt : ${snLines.length}`);
+    console.log(`  Lignes totales dans SN.txt : ${snLines.length}`);
 
-    // Construire un index SN.txt : normName → { lat, lng } (première occurrence)
+    // Construire index SN.txt filtré par feature_class=P
     const snIndex = new Map();
+    let snFilteredCount = 0;
     for (const line of snLines) {
       const cols = line.split('\t');
-      if (cols.length < 7) continue;
+      if (cols.length < 8) continue;
+
+      const featureClass = cols[6];
+      const featureCode = cols[7];
+
+      // Filtrer : feature_class = P et codes PPL*
+      if (featureClass !== 'P') continue;
+      if (!VALID_FEATURE_CODES.has(featureCode)) continue;
+
+      snFilteredCount++;
       const lat = parseFloat(cols[4]);
       const lng = parseFloat(cols[5]);
       if (isNaN(lat) || isNaN(lng)) continue;
@@ -150,10 +196,9 @@ async function main() {
         snIndex.set(mainName, { lat, lng });
       }
 
-      // Aussi indexer les noms alternatifs (colonne 3)
+      // Noms alternatifs (colonne 3)
       if (cols[3]) {
-        const alts = cols[3].split(',');
-        for (const alt of alts) {
+        for (const alt of cols[3].split(',')) {
           const normAlt = normalize(alt);
           if (normAlt && !snIndex.has(normAlt)) {
             snIndex.set(normAlt, { lat, lng });
@@ -162,23 +207,21 @@ async function main() {
       }
     }
 
-    console.log(`  Noms indexés (SN.txt) : ${snIndex.size}`);
+    console.log(`  Lignes feature_class=P : ${snFilteredCount}`);
+    console.log(`  Noms indexés : ${snIndex.size}`);
 
     // Charger toutes les localités sans coordonnées
-    const allLocs = await client.query(
-      'SELECT id, name FROM localites_geo WHERE latitude IS NULL'
-    );
+    const allLocs = await client.query('SELECT id, name FROM localites WHERE latitude IS NULL');
 
     let snMatched = 0;
     for (let i = 0; i < allLocs.rows.length; i += BATCH_SIZE) {
       const batch = allLocs.rows.slice(i, i + BATCH_SIZE);
       await client.query('BEGIN');
       for (const loc of batch) {
-        const norm = normalize(loc.name);
-        const coords = snIndex.get(norm);
+        const coords = snIndex.get(normalize(loc.name));
         if (coords) {
           await client.query(
-            `UPDATE localites_geo SET latitude = $1, longitude = $2, source = 'sn_txt' WHERE id = $3`,
+            `UPDATE localites SET latitude = $1, longitude = $2, source = 'sn_txt' WHERE id = $3`,
             [coords.lat, coords.lng, loc.id]
           );
           snMatched++;
@@ -188,31 +231,64 @@ async function main() {
     }
 
     report.snMatched = snMatched;
-    console.log(`  ✓ Localités matchées avec SN.txt : ${snMatched}\n`);
+    console.log(`  ✓ Localités matchées via SN.txt : ${snMatched}`);
 
     // ================================================================
-    // ÉTAPE 3 — Géocodage via localites.geojson (features AVEC name)
+    // ÉTAPE 4 — Charger communes.json (centres communes)
     // ================================================================
-    console.log('=== ÉTAPE 3 : Coordonnées depuis localites.geojson (avec name) ===');
+    console.log('\n=== ÉTAPE 4 : Chargement communes.json (centres communes) ===');
+
+    const communesJsonPath = path.resolve(__dirname, '..', '..', 'communes.json');
+    let communeCenters = new Map();
+
+    if (fs.existsSync(communesJsonPath)) {
+      const communesJson = JSON.parse(fs.readFileSync(communesJsonPath, 'utf-8'));
+      for (const c of communesJson) {
+        if (c.lat != null && c.lon != null) {
+          const normName = normalize(c.name);
+          communeCenters.set(normName, { lat: c.lat, lng: c.lon });
+          // Aussi indexer par commune_id via communes_boundaries
+          const dbMatch = communeByName.get(normName);
+          if (dbMatch) {
+            communeCenters.set(`cid:${dbMatch.commune_id}`, { lat: c.lat, lng: c.lon });
+          }
+        }
+      }
+      console.log(`  Centres de communes chargés : ${communeCenters.size / 2}`);
+    } else {
+      console.log('  ⚠ communes.json non trouvé, étape 6 ne filtrera pas les centres');
+    }
+
+    // ================================================================
+    // ÉTAPE 5 — Import localites.geojson (place types filtrés, AVEC name)
+    // ================================================================
+    console.log('\n=== ÉTAPE 5 : Coordonnées depuis localites.geojson (avec name) ===');
 
     const gjPath = path.resolve(__dirname, '..', '..', 'localites.geojson');
-    const gjRaw = fs.readFileSync(gjPath, 'utf-8');
-    const geojson = JSON.parse(gjRaw);
+    const geojson = JSON.parse(fs.readFileSync(gjPath, 'utf-8'));
 
     const withName = [];
     const withoutName = [];
+    let filteredOut = 0;
 
     for (const f of geojson.features) {
       if (!f.geometry || f.geometry.type !== 'Point' || !f.geometry.coordinates) continue;
-      if (f.properties && f.properties.name) {
+      const place = f.properties && f.properties.place;
+      if (!place || !VALID_PLACE_TYPES.has(place)) {
+        filteredOut++;
+        continue;
+      }
+
+      if (f.properties.name) {
         withName.push(f);
       } else {
         withoutName.push(f);
       }
     }
 
-    console.log(`  Features avec name    : ${withName.length}`);
-    console.log(`  Features sans name    : ${withoutName.length}`);
+    console.log(`  Features filtrées (place type invalide) : ${filteredOut}`);
+    console.log(`  Features valides avec name : ${withName.length}`);
+    console.log(`  Features valides sans name : ${withoutName.length}`);
 
     // Construire index GeoJSON : normName → { lat, lng }
     const gjIndex = new Map();
@@ -225,20 +301,17 @@ async function main() {
     }
 
     // Charger localités encore sans coordonnées
-    const stillNull = await client.query(
-      'SELECT id, name FROM localites_geo WHERE latitude IS NULL'
-    );
+    const stillNull = await client.query('SELECT id, name FROM localites WHERE latitude IS NULL');
 
     let gjMatched = 0;
     for (let i = 0; i < stillNull.rows.length; i += BATCH_SIZE) {
       const batch = stillNull.rows.slice(i, i + BATCH_SIZE);
       await client.query('BEGIN');
       for (const loc of batch) {
-        const norm = normalize(loc.name);
-        const coords = gjIndex.get(norm);
+        const coords = gjIndex.get(normalize(loc.name));
         if (coords) {
           await client.query(
-            `UPDATE localites_geo SET latitude = $1, longitude = $2, source = 'osm_geojson' WHERE id = $3`,
+            `UPDATE localites SET latitude = $1, longitude = $2, source = 'osm_geojson' WHERE id = $3`,
             [coords.lat, coords.lng, loc.id]
           );
           gjMatched++;
@@ -248,15 +321,17 @@ async function main() {
     }
 
     report.gjMatched = gjMatched;
-    console.log(`  ✓ Localités matchées avec GeoJSON : ${gjMatched}\n`);
+    console.log(`  ✓ Localités matchées via GeoJSON : ${gjMatched}`);
 
     // ================================================================
-    // ÉTAPE 4 — Points GeoJSON sans name → estimation par commune
+    // ÉTAPE 6 — Points GeoJSON sans name → estimation par commune
+    //           (skip si proche du centre commune)
     // ================================================================
-    console.log('=== ÉTAPE 4 : Points GeoJSON sans name → estimation par commune ===');
+    console.log('\n=== ÉTAPE 6 : Points GeoJSON sans name → estimation par commune ===');
 
     report.gjNoName = withoutName.length;
     let estimated = 0;
+    let skippedCenter = 0;
 
     for (let i = 0; i < withoutName.length; i++) {
       const f = withoutName[i];
@@ -273,9 +348,19 @@ async function main() {
       if (communeResult.rows.length === 0) continue;
       const communeId = communeResult.rows[0].commune_id;
 
+      // Vérifier si ce point est proche du centre de la commune
+      const center = communeCenters.get(`cid:${communeId}`);
+      if (center) {
+        const dist = haversineKm(lat, lng, center.lat, center.lng);
+        if (dist < COMMUNE_CENTER_THRESHOLD_KM) {
+          skippedCenter++;
+          continue; // Ce point représente probablement la commune elle-même
+        }
+      }
+
       // Trouver UNE localité sans coordonnées dans cette commune
       const unmatched = await client.query(
-        `SELECT id FROM localites_geo
+        `SELECT id FROM localites
          WHERE commune_id = $1 AND latitude IS NULL
          LIMIT 1`,
         [communeId]
@@ -284,7 +369,7 @@ async function main() {
       if (unmatched.rows.length === 0) continue;
 
       await client.query(
-        `UPDATE localites_geo SET latitude = $1, longitude = $2, source = 'osm_geojson_estimated' WHERE id = $3`,
+        `UPDATE localites SET latitude = $1, longitude = $2, source = 'osm_geojson_estimated' WHERE id = $3`,
         [lat, lng, unmatched.rows[0].id]
       );
       estimated++;
@@ -295,43 +380,90 @@ async function main() {
     }
 
     report.gjEstimated = estimated;
-    console.log(`\r  ✓ Localités estimées via points sans name : ${estimated}\n`);
+    report.skippedCenter = skippedCenter;
+    console.log(`\r  Points skippés (proche centre commune) : ${skippedCenter}`);
+    console.log(`  ✓ Localités estimées via points sans name : ${estimated}`);
 
     // ================================================================
-    // ÉTAPE 5 — Fallback centroïde de la commune
+    // ÉTAPE 7 — Distribution spatiale dans le polygone commune
+    //           (points uniques via ST_GeneratePoints)
     // ================================================================
-    console.log('=== ÉTAPE 5 : Fallback centroïde commune ===');
+    console.log('\n=== ÉTAPE 7 : Distribution spatiale dans les communes ===');
 
+    // Regrouper les localités restantes par commune
     const remaining = await client.query(
-      'SELECT id, commune_id FROM localites_geo WHERE latitude IS NULL AND commune_id IS NOT NULL'
+      `SELECT id, commune_id FROM localites
+       WHERE latitude IS NULL AND commune_id IS NOT NULL
+       ORDER BY commune_id`
     );
 
     console.log(`  Localités restantes sans coordonnées : ${remaining.rows.length}`);
 
-    let centroidCount = 0;
-    for (let i = 0; i < remaining.rows.length; i += BATCH_SIZE) {
-      const batch = remaining.rows.slice(i, i + BATCH_SIZE);
+    // Regrouper par commune_id
+    const byCommune = new Map();
+    for (const row of remaining.rows) {
+      if (!byCommune.has(row.commune_id)) {
+        byCommune.set(row.commune_id, []);
+      }
+      byCommune.get(row.commune_id).push(row.id);
+    }
+
+    let randomCount = 0;
+    for (const [communeId, locIds] of byCommune) {
+      // Générer N points uniques dans le polygone de la commune
+      const pointsResult = await client.query(
+        `SELECT
+           ST_Y((dp).geom) AS latitude,
+           ST_X((dp).geom) AS longitude
+         FROM (
+           SELECT ST_DumpPoints(ST_GeneratePoints(geometry, $1)) AS dp
+           FROM communes_boundaries
+           WHERE commune_id = $2
+         ) sub`,
+        [locIds.length, communeId]
+      );
+
       await client.query('BEGIN');
-      for (const loc of batch) {
-        const centroid = await client.query(
-          `SELECT ST_Y(ST_Centroid(geometry)) AS latitude,
-                  ST_X(ST_Centroid(geometry)) AS longitude
-           FROM communes_boundaries WHERE commune_id = $1`,
-          [loc.commune_id]
-        );
-        if (centroid.rows.length > 0) {
+      for (let j = 0; j < locIds.length; j++) {
+        if (j < pointsResult.rows.length) {
+          const pt = pointsResult.rows[j];
           await client.query(
-            `UPDATE localites_geo SET latitude = $1, longitude = $2, source = 'centroide_commune' WHERE id = $3`,
-            [centroid.rows[0].latitude, centroid.rows[0].longitude, loc.id]
+            `UPDATE localites SET latitude = $1, longitude = $2, source = 'commune_polygon_random' WHERE id = $3`,
+            [pt.latitude, pt.longitude, locIds[j]]
           );
-          centroidCount++;
+        } else {
+          // Fallback si ST_GeneratePoints n'a pas produit assez de points
+          const fallback = await client.query(
+            `SELECT
+               ST_Y(ST_PointOnSurface(geometry)) + (random() - 0.5) * 0.005 AS latitude,
+               ST_X(ST_PointOnSurface(geometry)) + (random() - 0.5) * 0.005 AS longitude
+             FROM communes_boundaries WHERE commune_id = $1`,
+            [communeId]
+          );
+          if (fallback.rows.length > 0) {
+            await client.query(
+              `UPDATE localites SET latitude = $1, longitude = $2, source = 'commune_polygon_random' WHERE id = $3`,
+              [fallback.rows[0].latitude, fallback.rows[0].longitude, locIds[j]]
+            );
+          }
         }
+        randomCount++;
       }
       await client.query('COMMIT');
     }
 
-    report.centroid = centroidCount;
-    console.log(`  ✓ Localités avec centroïde : ${centroidCount}\n`);
+    report.randomCount = randomCount;
+    console.log(`  ✓ Localités avec coordonnées aléatoires dans commune : ${randomCount}`);
+
+    // ================================================================
+    // Créer les index
+    // ================================================================
+    console.log('\n  Création des index...');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_localites_commune_id ON localites (commune_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_localites_departement_id ON localites (departement_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_localites_region_id ON localites (region_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_localites_name ON localites (name)');
+    console.log('  ✓ Index créés');
 
     // ================================================================
     // RAPPORT FINAL
@@ -345,31 +477,32 @@ async function main() {
         COUNT(*) FILTER (WHERE source = 'sn_txt') AS src_sn,
         COUNT(*) FILTER (WHERE source = 'osm_geojson') AS src_gj,
         COUNT(*) FILTER (WHERE source = 'osm_geojson_estimated') AS src_gj_est,
-        COUNT(*) FILTER (WHERE source = 'centroide_commune') AS src_centroid
-      FROM localites_geo
+        COUNT(*) FILTER (WHERE source = 'commune_polygon_random') AS src_random
+      FROM localites
     `);
     const s = stats.rows[0];
 
-    console.log('╔══════════════════════════════════════════════════╗');
-    console.log('║              RAPPORT FINAL                      ║');
-    console.log('╠══════════════════════════════════════════════════╣');
-    console.log(`║  Localités insérées (senegal.ts)  : ${String(report.totalSenegalTs).padStart(10)} ║`);
-    console.log(`║  Lignes lues dans SN.txt          : ${String(report.snLinesRead).padStart(10)} ║`);
-    console.log(`║  Matchées via SN.txt              : ${String(s.src_sn).padStart(10)} ║`);
-    console.log(`║  Matchées via GeoJSON (avec name) : ${String(s.src_gj).padStart(10)} ║`);
-    console.log(`║  Points GeoJSON sans name         : ${String(report.gjNoName).padStart(10)} ║`);
-    console.log(`║  Estimées via GeoJSON (sans name) : ${String(s.src_gj_est).padStart(10)} ║`);
-    console.log(`║  Fallback centroïde               : ${String(s.src_centroid).padStart(10)} ║`);
-    console.log('╠══════════════════════════════════════════════════╣');
-    console.log(`║  TOTAL avec coordonnées           : ${String(s.with_coords).padStart(10)} ║`);
-    console.log(`║  TOTAL sans coordonnées           : ${String(s.no_coords).padStart(10)} ║`);
-    console.log(`║  TOTAL localités                  : ${String(s.total).padStart(10)} ║`);
-    console.log('╚══════════════════════════════════════════════════╝');
+    console.log('\n╔════════════════════════════════════════════════════════╗');
+    console.log('║                    RAPPORT FINAL                      ║');
+    console.log('╠════════════════════════════════════════════════════════╣');
+    console.log(`║  Localités insérées (senegal.ts)      : ${String(report.totalSenegalTs).padStart(10)} ║`);
+    console.log(`║  Lignes lues dans SN.txt              : ${String(report.snLinesRead).padStart(10)} ║`);
+    console.log(`║  Matchées via SN.txt (class=P)        : ${String(s.src_sn).padStart(10)} ║`);
+    console.log(`║  Matchées via GeoJSON (avec name)     : ${String(s.src_gj).padStart(10)} ║`);
+    console.log(`║  Points GeoJSON sans name             : ${String(report.gjNoName).padStart(10)} ║`);
+    console.log(`║  Skippés (proche centre commune)      : ${String(report.skippedCenter).padStart(10)} ║`);
+    console.log(`║  Estimées via GeoJSON (sans name)     : ${String(s.src_gj_est).padStart(10)} ║`);
+    console.log(`║  Distribution aléatoire dans commune  : ${String(s.src_random).padStart(10)} ║`);
+    console.log('╠════════════════════════════════════════════════════════╣');
+    console.log(`║  TOTAL avec coordonnées               : ${String(s.with_coords).padStart(10)} ║`);
+    console.log(`║  TOTAL sans coordonnées               : ${String(s.no_coords).padStart(10)} ║`);
+    console.log(`║  TOTAL localités                      : ${String(s.total).padStart(10)} ║`);
+    console.log('╚════════════════════════════════════════════════════════╝');
 
     // Stats par région
     const byRegion = await client.query(`
       SELECT r.name AS region, COUNT(l.id) AS count
-      FROM localites_geo l
+      FROM localites l
       JOIN regions_boundaries r ON r.region_id = l.region_id
       GROUP BY r.name ORDER BY count DESC
     `);

@@ -41,32 +41,28 @@ CREATE INDEX IF NOT EXISTS idx_communes_geom
   ON communes_boundaries USING GIST (geometry);
 
 -- Table des localités
-CREATE TABLE IF NOT EXISTS localites_geo (
+CREATE TABLE IF NOT EXISTS localites (
   id SERIAL PRIMARY KEY,
-  geonameid INTEGER,
   name TEXT NOT NULL,
   commune_id INTEGER,
   departement_id INTEGER,
   region_id INTEGER,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
-  source TEXT DEFAULT 'sn_txt'
+  source TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_localites_commune_id
-  ON localites_geo (commune_id);
+  ON localites (commune_id);
 
 CREATE INDEX IF NOT EXISTS idx_localites_departement_id
-  ON localites_geo (departement_id);
+  ON localites (departement_id);
 
 CREATE INDEX IF NOT EXISTS idx_localites_region_id
-  ON localites_geo (region_id);
+  ON localites (region_id);
 
 CREATE INDEX IF NOT EXISTS idx_localites_name
-  ON localites_geo (name);
-
-CREATE INDEX IF NOT EXISTS idx_localites_geonameid
-  ON localites_geo (geonameid);
+  ON localites (name);
 
 -- Index sur les clés de liaison
 CREATE INDEX IF NOT EXISTS idx_regions_region_id

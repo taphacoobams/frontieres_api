@@ -336,14 +336,13 @@
         "type": "object",
         "properties": {
           "id": { "type": "integer" },
-          "geonameid": { "type": "integer" },
           "name": { "type": "string", "example": "Ngor" },
           "commune_id": { "type": "integer" },
           "departement_id": { "type": "integer" },
           "region_id": { "type": "integer" },
           "latitude": { "type": "number", "example": 14.75 },
           "longitude": { "type": "number", "example": -17.52 },
-          "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "centroide_commune"], "example": "sn_txt" }
+          "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "commune_polygon_random"], "example": "sn_txt" }
         }
       },
       "FeatureCollection": {

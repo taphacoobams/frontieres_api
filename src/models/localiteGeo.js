@@ -3,9 +3,9 @@ const pool = require('../database/connection');
 const LocaliteGeo = {
   async findAll({ communeId, departementId, regionId, limit, offset } = {}) {
     let query = `
-      SELECT id, geonameid, name, commune_id, departement_id, region_id,
+      SELECT id, name, commune_id, departement_id, region_id,
              latitude, longitude, source
-      FROM localites_geo
+      FROM localites
     `;
     const conditions = [];
     const params = [];
@@ -45,9 +45,9 @@ const LocaliteGeo = {
 
   async findById(id) {
     const result = await pool.query(`
-      SELECT id, geonameid, name, commune_id, departement_id, region_id,
+      SELECT id, name, commune_id, departement_id, region_id,
              latitude, longitude, source
-      FROM localites_geo
+      FROM localites
       WHERE id = $1
     `, [id]);
     return result.rows[0] || null;
@@ -55,9 +55,9 @@ const LocaliteGeo = {
 
   async search(q, { limit = 50 } = {}) {
     const result = await pool.query(`
-      SELECT id, geonameid, name, commune_id, departement_id, region_id,
+      SELECT id, name, commune_id, departement_id, region_id,
              latitude, longitude, source
-      FROM localites_geo
+      FROM localites
       WHERE name ILIKE $1
       ORDER BY name
       LIMIT $2
@@ -66,7 +66,7 @@ const LocaliteGeo = {
   },
 
   async count(filters = {}) {
-    let query = 'SELECT COUNT(*) FROM localites_geo';
+    let query = 'SELECT COUNT(*) FROM localites';
     const conditions = [];
     const params = [];
     let paramIdx = 1;
@@ -101,8 +101,8 @@ const LocaliteGeo = {
         (SELECT COUNT(*) FROM regions_boundaries) AS regions,
         (SELECT COUNT(*) FROM departements_boundaries) AS departements,
         (SELECT COUNT(*) FROM communes_boundaries) AS communes,
-        (SELECT COUNT(*) FROM localites_geo) AS localites,
-        (SELECT COUNT(*) FROM localites_geo WHERE latitude IS NOT NULL) AS localites_with_coordinates
+        (SELECT COUNT(*) FROM localites) AS localites,
+        (SELECT COUNT(*) FROM localites WHERE latitude IS NOT NULL) AS localites_with_coordinates
     `);
     return result.rows[0];
   },
