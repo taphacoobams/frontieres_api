@@ -1,0 +1,66 @@
+const DepartementBoundary = require('../models/departementBoundary');
+
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000;
+
+function getCached(key) {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
+    return entry.data;
+  }
+  cache.delete(key);
+  return null;
+}
+
+function setCache(key, data) {
+  cache.set(key, { data, timestamp: Date.now() });
+}
+
+const DepartementService = {
+  async getAll(regionId) {
+    const cacheKey = `departements:all:${regionId || 'none'}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
+    const rows = await DepartementBoundary.findAll(regionId);
+    const features = rows.map((row) => ({
+      type: 'Feature',
+      properties: {
+        id: row.id,
+        departement_id: row.departement_id,
+        region_id: row.region_id,
+        name: row.name,
+      },
+      geometry: row.geometry,
+    }));
+    setCache(cacheKey, features);
+    return features;
+  },
+
+  async getById(id) {
+    const row = await DepartementBoundary.findById(id);
+    if (!row) return null;
+    return {
+      type: 'Feature',
+      properties: {
+        id: row.id,
+        departement_id: row.departement_id,
+        region_id: row.region_id,
+        name: row.name,
+      },
+      geometry: row.geometry,
+    };
+  },
+
+  async getFeatureCollection(regionId) {
+    const cacheKey = `departements:fc:${regionId || 'none'}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
+    const fc = await DepartementBoundary.findAllAsFeatureCollection(regionId);
+    setCache(cacheKey, fc);
+    return fc;
+  },
+};
+
+module.exports = DepartementService;
