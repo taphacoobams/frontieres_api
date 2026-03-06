@@ -15,7 +15,8 @@ const path = require('path');
 const https = require('https');
 const http  = require('http');
 
-const BASE_URL  = 'https://www.ansd.sn/donnees-recensements';
+const BASE_URL      = 'https://www.ansd.sn/donnees-recensements';
+const CSV_BASE_URL  = 'https://www.ansd.sn/data-recensement.csv';
 const OUT_DIR   = path.resolve(__dirname, '../../data/ansd-csv');
 const HTML_DIR  = path.join(OUT_DIR, 'html');
 
@@ -84,9 +85,10 @@ function fetchUrl(url) {
     const req = client.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; frontieres-api-bot/1.0)',
-        'Accept': 'text/html,application/xhtml+xml,*/*',
+        'Accept': 'text/html,application/xhtml+xml,text/csv,*/*',
       },
       timeout: 30000,
+      rejectUnauthorized: false,
     }, (res) => {
       // Suivre les redirections
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -133,97 +135,61 @@ function extractCsvLinks(html, baseUrl) {
   return links;
 }
 
-// ─── Étape 1 : Télécharger les pages HTML ───────────────────────
+// ─── Étape 1 : Télécharger les CSV directement ──────────────────
+// Format URL ANSD : https://www.ansd.sn/data-recensement.csv
+//   ?field_liste_annee_value=2023
+//   &field_regions_value=DAKAR
+//   &field_departements_value=DAKAR
+//   &page&_format=csv
 
-async function downloadHtmlPages() {
-  fs.mkdirSync(HTML_DIR, { recursive: true });
-  console.log(`\n=== Étape 1 : Téléchargement des pages HTML (${DEPARTEMENTS.length} départements) ===`);
+async function downloadCsvDirect() {
+  console.log(`\n=== Téléchargement direct des CSV (${DEPARTEMENTS.length} départements) ===`);
 
   let saved = 0, skipped = 0, errors = 0;
+  const manifest = {};
 
   for (let i = 0; i < DEPARTEMENTS.length; i++) {
     const { region, dep } = DEPARTEMENTS[i];
     const slug = slugify(dep);
-    const htmlFile = path.join(HTML_DIR, `${slug}.html`);
+    const csvFile = path.join(OUT_DIR, `${slug}.csv`);
 
-    if (fs.existsSync(htmlFile)) {
-      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ↷ ${dep} (déjà téléchargé)`);
+    if (fs.existsSync(csvFile) && fs.statSync(csvFile).size > 100) {
+      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ↷ ${dep} (déjà présent)`);
+      manifest[slug] = csvFile;
       skipped++;
       continue;
     }
 
-    const url = `${BASE_URL}?field_liste_annee_value=2023` +
+    const url = `${CSV_BASE_URL}` +
+                `?field_liste_annee_value=2023` +
                 `&field_regions_value=${encodeURIComponent(region)}` +
-                `&field_departements_value=${encodeURIComponent(dep)}`;
+                `&field_departements_value=${encodeURIComponent(dep)}` +
+                `&page&_format=csv`;
 
     try {
       const buf = await fetchUrl(url);
-      fs.writeFileSync(htmlFile, buf);
-      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ✓ ${dep} (${(buf.length/1024).toFixed(1)} KB)`);
+      const content = buf.toString('utf8');
+
+      // Vérifier que c'est bien un CSV (pas une page HTML d'erreur)
+      if (content.trim().startsWith('<') || content.length < 10) {
+        console.error(`  [${i+1}/${DEPARTEMENTS.length}] ✗ ${dep} : réponse non-CSV (${content.length} bytes)`);
+        // Sauvegarder pour inspection
+        fs.writeFileSync(path.join(HTML_DIR, `${slug}_response.txt`), content.slice(0, 500));
+        errors++;
+        await sleep(1000);
+        continue;
+      }
+
+      fs.writeFileSync(csvFile, buf);
+      manifest[slug] = csvFile;
+      const lines = content.split('\n').length;
+      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ✓ ${dep} — ${lines} lignes (${(buf.length/1024).toFixed(1)} KB)`);
       saved++;
-      await sleep(800); // politesse envers le serveur
+      await sleep(600);
     } catch (err) {
       console.error(`  [${i+1}/${DEPARTEMENTS.length}] ✗ ${dep} : ${err.message}`);
       errors++;
-      await sleep(1500);
-    }
-  }
-
-  console.log(`\n  Pages HTML : ${saved} nouvelles, ${skipped} déjà présentes, ${errors} erreurs`);
-  return errors;
-}
-
-// ─── Étape 2 : Extraire et télécharger les CSV ──────────────────
-
-async function downloadCsvFiles() {
-  console.log('\n=== Étape 2 : Extraction + téléchargement des CSV ===');
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-
-  const manifest = {};
-  let csvSaved = 0, csvErrors = 0, noLink = 0;
-
-  for (let i = 0; i < DEPARTEMENTS.length; i++) {
-    const { dep } = DEPARTEMENTS[i];
-    const slug = slugify(dep);
-    const htmlFile = path.join(HTML_DIR, `${slug}.html`);
-    const csvFile  = path.join(OUT_DIR, `${slug}.csv`);
-
-    if (!fs.existsSync(htmlFile)) {
-      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ⚠ HTML manquant : ${dep}`);
-      noLink++;
-      continue;
-    }
-
-    if (fs.existsSync(csvFile)) {
-      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ↷ ${dep} CSV déjà présent`);
-      manifest[slug] = csvFile;
-      csvSaved++;
-      continue;
-    }
-
-    const html = fs.readFileSync(htmlFile, 'utf8');
-    const pageUrl = `${BASE_URL}?field_liste_annee_value=2023&field_departements_value=${encodeURIComponent(dep)}`;
-    const links = extractCsvLinks(html, pageUrl);
-
-    if (links.length === 0) {
-      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ⚠ Aucun lien CSV trouvé : ${dep}`);
-      noLink++;
-      // Sauvegarder le HTML pour inspection manuelle
-      continue;
-    }
-
-    // Prendre le premier lien CSV trouvé
-    const csvUrl = links[0];
-    try {
-      const buf = await fetchUrl(csvUrl);
-      fs.writeFileSync(csvFile, buf);
-      manifest[slug] = csvFile;
-      console.log(`  [${i+1}/${DEPARTEMENTS.length}] ✓ ${dep} → ${path.basename(csvFile)} (${(buf.length/1024).toFixed(1)} KB)`);
-      csvSaved++;
-      await sleep(600);
-    } catch (err) {
-      console.error(`  [${i+1}/${DEPARTEMENTS.length}] ✗ ${dep} CSV : ${err.message}`);
-      csvErrors++;
+      await sleep(1200);
     }
   }
 
@@ -233,10 +199,11 @@ async function downloadCsvFiles() {
     JSON.stringify(manifest, null, 2)
   );
 
-  console.log(`\n  CSV : ${csvSaved} présents, ${noLink} sans lien, ${csvErrors} erreurs`);
-  console.log(`  Manifeste écrit : ${path.join(OUT_DIR, 'manifest.json')}`);
-  return { csvSaved, noLink, csvErrors };
+  console.log(`\n  CSV : ${saved} nouveaux, ${skipped} déjà présents, ${errors} erreurs`);
+  console.log(`  Manifeste : ${path.join(OUT_DIR, 'manifest.json')}`);
+  return { saved, skipped, errors, manifest };
 }
+
 
 // ─── Étape 3 : Rapport sur les CSV disponibles ──────────────────
 
@@ -262,15 +229,14 @@ function reportCsvFiles() {
 async function main() {
   console.log('╔═══════════════════════════════════════════════════╗');
   console.log('║        download-ansd-csv.js                      ║');
-  console.log('║  Scraping recensement ANSD 2023 — 46 dpts        ║');
+  console.log('║  Recensement ANSD 2023 — 46 départements         ║');
   console.log('╚═══════════════════════════════════════════════════╝');
   console.log(`\n  Dossier de sortie : ${OUT_DIR}\n`);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.mkdirSync(HTML_DIR, { recursive: true });
 
-  await downloadHtmlPages();
-  await downloadCsvFiles();
+  await downloadCsvDirect();
   reportCsvFiles();
 
   console.log('\n✅ Script terminé.');
