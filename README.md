@@ -1,63 +1,53 @@
-# Frontières API – Sénégal 🇸🇳
+# Découpage Administratif API 🇸🇳
 
-API REST servant les **frontières administratives du Sénégal** au format **GeoJSON**, à partir d'une base **PostgreSQL / PostGIS**.
-
-> **14 régions · 46 départements · 552 communes · 25 515 localités** — polygones complets et coordonnées géographiques, noms alignés sur le référentiel administratif officiel.
+API REST construite avec **Node.js (Express)** et **PostgreSQL/PostGIS** fournissant le découpage administratif complet du Sénégal : **régions, départements, communes, localités** avec polygones géographiques.
 
 ---
 
-## Sommaire
+## 🚀 Fonctionnalités
 
-- [Fonctionnalités](#fonctionnalités)
-- [Prérequis](#prérequis)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Initialisation de la base](#initialisation-de-la-base)
-- [Pipeline des localités](#pipeline-des-localités)
-- [Lancement](#lancement)
-- [Endpoints de l'API](#endpoints-de-lapi)
-- [Format des réponses](#format-des-réponses)
-- [Documentation Swagger](#documentation-swagger)
-- [Tests](#tests)
-- [Architecture du projet](#architecture-du-projet)
-- [Optimisations](#optimisations)
-- [Sources de données](#sources-de-données)
-- [Déploiement sur Render](#déploiement-sur-render)
-- [Inspiration](#inspiration)
-- [Licence](#licence)
+* 📍 Liste des **14 régions** avec polygones GeoJSON
+* 🏘️ Liste des **46 départements** avec polygones et filtrage par région
+* 🏠 Liste des **552 communes** avec polygones et filtrage par département
+* 📌 Liste des **25 515 localités** géolocalisées (quartiers, villages, hameaux)
+* 🗺️ **FeatureCollections** GeoJSON pour cartographie (Leaflet, Mapbox, OpenLayers)
+* 🔍 Recherche de localités par nom (`/api/localites/search?q=`)
+* 📊 Statistiques globales (nombre de régions, départements, communes et localités)
+* 📄 Pagination sur les localités (`limit`, `offset`)
+* 🌐 CORS activé
+* 🛡️ Sécurité (Helmet, rate limiting)
+* 📦 Réponses JSON et GeoJSON
+* 📖 Documentation interactive (Redoc + OpenAPI)
+* 🧪 31 tests fonctionnels (Jest + Supertest)
 
 ---
 
-## Fonctionnalités
+## 🛠️ Stack technique
 
-- Polygones **MultiPolygon** pour chaque division administrative du Sénégal
-- **25 515 localités** géolocalisées (quartiers, villages, hameaux)
-- Réponses au format **GeoJSON** (Feature & FeatureCollection), compatibles Leaflet, Mapbox, OpenLayers
-- Filtrage hiérarchique : localités → communes → départements → régions
-- Recherche de localités par nom (`/api/localites/search?q=`)
-- Pagination sur les localités (`limit`, `offset`)
-- Endpoint `/api/stats` avec compteurs temps réel
-- Endpoint `/health` avec vérification de la base de données
-- Documentation **Swagger/OpenAPI** à `/api/docs`
-- 4 sources de coordonnées : `sn_txt`, `osm_geojson`, `osm_geojson_estimated`, `centroide_commune`
-- **31 tests fonctionnels** (Jest + Supertest)
-- Cache mémoire, compression gzip, rate limiting, sécurité (Helmet)
-- Fichier `senegal.ts` inclus comme référentiel administratif
+* **Node.js** >= 18
+* **Express.js** — framework HTTP
+* **PostgreSQL** + **PostGIS** — base de données spatiale
+* **pg** — client PostgreSQL
+* **senegal.ts** — référentiel administratif officiel (25 515 localités)
+* **Jest** + **Supertest** — tests fonctionnels
+* Déployée sur **Render**
 
-## Prérequis
+---
 
-- **Node.js** ≥ 18
-- **PostgreSQL** ≥ 14 avec l'extension **PostGIS** installée
-
-## Installation
+## 📦 Installation locale
 
 ```bash
+# Cloner le projet
 git clone https://github.com/taphacoobams/frontieres_api.git
 cd frontieres_api
+
+# Installer les dépendances
 npm install
 ```
 
-## Configuration
+---
+
+## ⚙️ Configuration
 
 Créer un fichier `.env` à la racine :
 
@@ -79,7 +69,21 @@ CREATE DATABASE frontieres_db;
 CREATE EXTENSION IF NOT EXISTS postgis;
 ```
 
-## Initialisation de la base
+---
+
+## ▶️ Lancer le projet
+
+```bash
+npm run dev      # développement (nodemon)
+npm start        # production
+```
+
+L'API sera disponible sur :
+👉 `http://localhost:3005`
+
+---
+
+## 🏗️ Initialisation de la base
 
 ```bash
 npm run init-db
@@ -87,9 +91,11 @@ npm run init-db
 
 Crée les tables `regions_boundaries`, `departements_boundaries`, `communes_boundaries`, `localites_geo` avec leurs index spatiaux GIST.
 
-## Pipeline des localités
+---
 
-Le fichier `senegal.ts` contient les **25 515 localités** avec leur hiérarchie commune/département/région. Le script unique reconstruit toute la table :
+## 📍 Pipeline des localités
+
+Le fichier `senegal.ts` contient les **25 515 localités** avec leur hiérarchie region → departement → commune → localite.
 
 ```bash
 npm run rebuild-localites
@@ -113,144 +119,65 @@ Le script effectue automatiquement 5 étapes :
 | `centroide_commune` | 15 290 | Centroïde du polygone de la commune |
 | **Total** | **25 515** | |
 
-## Lancement
+---
 
-```bash
-npm start        # production
-npm run dev      # développement (nodemon)
-```
+## 📚 Endpoints
 
-L'API démarre sur `http://localhost:3005`.
+### 🔹 Régions
 
-## Endpoints de l'API
-
-### Entités individuelles (GeoJSON Features)
-
-| Méthode | URL | Description |
-|---------|-----|-------------|
-| `GET` | `/api/regions` | Toutes les régions |
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/api/regions` | Liste des 14 régions (GeoJSON Features) |
 | `GET` | `/api/regions/:id` | Une région par ID |
-| `GET` | `/api/departements` | Tous les départements |
+
+### 🔹 Départements
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/api/departements` | Liste de tous les départements |
+| `GET` | `/api/departements?region_id=X` | Départements filtrés par région |
 | `GET` | `/api/departements/:id` | Un département par ID |
-| `GET` | `/api/departements?region_id=X` | Départements d'une région |
-| `GET` | `/api/communes` | Toutes les communes |
+
+### 🔹 Communes
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/api/communes` | Liste de toutes les communes |
+| `GET` | `/api/communes?departement_id=X` | Communes filtrées par département |
 | `GET` | `/api/communes/:id` | Une commune par ID |
-| `GET` | `/api/communes?departement_id=X` | Communes d'un département |
 
-### Localités
+### 🔹 Localités
 
-| Méthode | URL | Description |
-|---------|-----|-------------|
-| `GET` | `/api/localites` | Toutes les localités |
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/api/localites` | Liste de toutes les localités |
+| `GET` | `/api/localites?commune_id=X` | Localités filtrées par commune |
+| `GET` | `/api/localites?departement_id=X` | Localités filtrées par département |
+| `GET` | `/api/localites?region_id=X` | Localités filtrées par région |
+| `GET` | `/api/localites?limit=50&offset=0` | Localités paginées |
 | `GET` | `/api/localites/:id` | Une localité par ID |
-| `GET` | `/api/localites/search?q=Dakar` | Recherche par nom (min 2 car.) |
-| `GET` | `/api/localites?commune_id=X` | Localités d'une commune |
-| `GET` | `/api/localites?departement_id=X` | Localités d'un département |
-| `GET` | `/api/localites?region_id=X` | Localités d'une région |
-| `GET` | `/api/localites?limit=50&offset=0` | Pagination |
+| `GET` | `/api/localites/search?q=dakar` | Recherche par nom (min 2 caractères) |
 
-### FeatureCollections (pour cartographie)
+### 🔹 Cartographie (FeatureCollections)
 
-| Méthode | URL | Description |
-|---------|-----|-------------|
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
 | `GET` | `/api/map/regions` | FeatureCollection de toutes les régions |
 | `GET` | `/api/map/departements` | FeatureCollection de tous les départements |
 | `GET` | `/api/map/communes` | FeatureCollection de toutes les communes |
 
-### Système
+### 🔹 Statistiques & Utilitaires
 
-| Méthode | URL | Description |
-|---------|-----|-------------|
-| `GET` | `/health` | Health check (avec état de la base) |
-| `GET` | `/api/stats` | Statistiques globales |
-| `GET` | `/api/docs` | Documentation Swagger/OpenAPI |
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/api/stats` | Nombre total de régions, départements, communes et localités |
+| `GET` | `/health` | Statut du serveur (database, timestamp) |
+| `GET` | `/docs` | [Documentation interactive (Redoc)](https://frontieres-api.onrender.com/docs) |
+| `GET` | `/api/openapi.json` | [Spécification OpenAPI JSON](https://frontieres-api.onrender.com/api/openapi.json) |
 
-## Format des réponses
+---
 
-### Feature individuelle
-
-```json
-{
-  "type": "Feature",
-  "properties": {
-    "id": 1,
-    "region_id": 3,
-    "name": "Dakar"
-  },
-  "geometry": {
-    "type": "MultiPolygon",
-    "coordinates": [...]
-  }
-}
-```
-
-### FeatureCollection (`/api/map/*`)
-
-```json
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": { "id": 1, "name": "Dakar", ... },
-      "geometry": { "type": "MultiPolygon", "coordinates": [...] }
-    }
-  ]
-}
-```
-
-Compatible directement avec **Leaflet**, **Mapbox GL**, **OpenLayers**, **D3.js**, etc.
-
-### Localité
-
-```json
-{
-  "id": 7806,
-  "geonameid": 2253354,
-  "name": "Dakar",
-  "commune_id": 63,
-  "departement_id": 7,
-  "region_id": 1,
-  "latitude": 14.6937,
-  "longitude": -17.44406,
-  "source": "sn_txt"
-}
-```
-
-### Health
-
-```json
-{
-  "status": "ok",
-  "service": "frontieres-api",
-  "database": "connected",
-  "timestamp": "2026-03-06T15:00:46.838Z"
-}
-```
-
-### Stats
-
-```json
-{
-  "regions": 14,
-  "departements": 46,
-  "communes": 552,
-  "localites": 25515,
-  "localites_with_coordinates": 25515
-}
-```
-
-## Documentation Swagger
-
-Documentation interactive disponible à :
-
-```
-http://localhost:3005/api/docs
-```
-
-Inclut tous les endpoints, paramètres, schémas et exemples de réponses.
-
-## Tests
+## 🧪 Tests
 
 ```bash
 npm test
@@ -266,35 +193,48 @@ npm test
 | `communes.test.js` | 4 | CRUD communes, filtre `departement_id`, FeatureCollection |
 | `localites.test.js` | 17 | CRUD localités, recherche, filtres, pagination, coordonnées valides |
 
-Technologies : **Jest** + **Supertest**
+---
 
-## Référentiel administratif
+## 🌍 Déploiement (Render)
 
-Le fichier `senegal.ts` contient la liste officielle des 14 régions, 46 départements et 552 communes du Sénégal, structurée hiérarchiquement :
+### Variables d'environnement requises :
 
-```typescript
-export const senegal = [
-  {
-    name: "Dakar",
-    departements: [
-      {
-        name: "Dakar",
-        communes: [
-          { name: "Dakar Plateau" },
-          { name: "Gorée" },
-          ...
-        ]
-      },
-      ...
-    ]
-  },
-  ...
-];
+| Clé | Valeur |
+|-----|--------|
+| `NODE_ENV` | production |
+| `DATABASE_URL` | Connection string PostgreSQL |
+
+### Blueprint (automatique)
+
+Le fichier `render.yaml` est inclus. Sur [render.com/blueprints](https://dashboard.render.com/blueprints) → **New Blueprint Instance** → connecter le repo.
+
+### Commandes Render
+
+**Build command**
+
+```bash
+npm install && npm run init-db
 ```
 
-Ce fichier sert de **source de vérité** pour les noms des entités administratives.
+**Start command**
 
-## Architecture du projet
+```bash
+node src/server.js
+```
+
+### Importer les données
+
+```bash
+# Export depuis votre base locale
+pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries -t localites_geo > dump.sql
+
+# Import sur Render (utiliser l'External Database URL)
+pg_restore -d "postgres://user:pass@host/dbname" --no-owner --no-acl dump.sql
+```
+
+---
+
+## 🏗️ Architecture du projet
 
 ```
 frontieres_api/
@@ -302,7 +242,7 @@ frontieres_api/
 ├── .gitignore
 ├── package.json
 ├── render.yaml             # Blueprint Render
-├── senegal.ts              # Référentiel administratif officiel
+├── senegal.ts              # Référentiel administratif (25 515 localités)
 ├── README.md
 ├── tests/                  # Tests fonctionnels
 │   ├── health.test.js
@@ -342,18 +282,9 @@ frontieres_api/
         └── rebuild-localites.js   # Pipeline complet (5 étapes)
 ```
 
-## Optimisations
+---
 
-| Technique | Détail |
-|-----------|--------|
-| **Index GIST** | Index spatial sur chaque colonne `geometry` |
-| **Cache mémoire** | TTL de 5 min, évite les requêtes SQL redondantes |
-| **Compression gzip** | Réduit la taille des réponses (polygones = volumineux) |
-| **Rate limiting** | 200 requêtes / 15 min par IP |
-| **Helmet** | Headers de sécurité HTTP |
-| **CORS** | Activé pour les appels cross-origin |
-
-## Sources de données
+## 📊 Sources de données
 
 | Source | Utilisation |
 |--------|------------|
@@ -362,74 +293,37 @@ frontieres_api/
 | [GeoNames (SN.txt)](https://download.geonames.org/export/dump/) | Localités (populated places) |
 | Référentiel officiel | Noms et hiérarchie (`senegal.ts`) |
 
-## Déploiement sur Render
+---
 
-### 1. Créer les services
+## 🤝 Contribuer
 
-**Option A — Blueprint (automatique) :**
+Les contributions sont les bienvenues !
 
-1. Aller sur [render.com/blueprints](https://dashboard.render.com/blueprints)
-2. Cliquer **New Blueprint Instance**
-3. Connecter le repo `taphacoobams/frontieres_api`
-4. Render détecte `render.yaml` et crée automatiquement la base PostgreSQL + le service web
+1. Fork & Clone le repo
+2. Créer une branche : `git checkout -b feat/ma-fonctionnalite`
+3. Faire les modifications et ajouter des tests
+4. Vérifier que les tests passent : `npm test`
+5. Ouvrir une Pull Request
 
-**Option B — Manuel :**
+---
 
-1. **Créer une base PostgreSQL** :
-   - Dashboard → **New** → **PostgreSQL**
-   - Name : `frontieres-db`
-   - Plan : Free
-   - Valider, puis copier l'**Internal Database URL**
+## 💡 Inspiration
 
-2. **Créer un Web Service** :
-   - Dashboard → **New** → **Web Service**
-   - Connecter le repo GitHub
-   - Runtime : **Node**
-   - Build Command : `npm install && npm run init-db`
-   - Start Command : `node src/server.js`
-   - Ajouter la variable d'environnement :
-     - `DATABASE_URL` = l'Internal Database URL copiée
+Ce projet est inspiré par [**decoupage_administratif_api**](https://github.com/TheShvdow/decoupage_administratif_api) de [@TheShvdow](https://github.com/TheShvdow). L'idée était d'aller plus loin en ajoutant les **polygones géographiques** (frontières) de chaque entité administrative et les **25 515 localités** géolocalisées.
 
-### 2. Activer PostGIS
+---
 
-Render fournit PostgreSQL mais l'extension PostGIS doit être activée. Dans le **Shell** de la base (Dashboard → base → Shell) :
-
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
-
-> **Note :** `npm run init-db` exécute aussi cette commande, mais il est recommandé de le faire manuellement la première fois.
-
-### 3. Importer les données
-
-Depuis votre machine locale, exporter les données PostGIS et les importer sur Render via `pg_dump` / `pg_restore` :
-
-```bash
-# Export depuis votre base locale
-pg_dump -Fc -d frontieres_db -t regions_boundaries -t departements_boundaries -t communes_boundaries -t localites_geo > dump.sql
-
-# Import sur Render (utiliser l'External Database URL)
-pg_restore -d "postgres://user:pass@host/dbname" --no-owner --no-acl dump.sql
-```
-
-L'**External Database URL** se trouve dans le Dashboard Render → PostgreSQL → Info → External Database URL.
-
-### 4. Vérifier
-
-```bash
-curl https://votre-app.onrender.com/health
-# → { "status": "ok", "service": "frontieres-api" }
-
-curl https://votre-app.onrender.com/api/regions
-# → 14 GeoJSON Features
-```
-
-> ⚠️ Le plan **Free** de Render met le service en veille après 15 min d'inactivité. La première requête après une veille prend ~30s.
-
-## Inspiration
-
-Ce projet est inspiré par [**decoupage_administratif_api**](https://github.com/TheShvdow/decoupage_administratif_api) de [@TheShvdow](https://github.com/TheShvdow), une API du découpage administratif du Sénégal. L'idée était d'aller plus loin en ajoutant les **polygones géographiques** (frontières) de chaque entité administrative, permettant ainsi la visualisation cartographique directe.
-
-## Licence
+## 📄 Licence
 
 MIT
+
+---
+
+## 👨🏽‍💻 Auteur
+
+**taphacoobams**
+GitHub : [https://github.com/taphacoobams](https://github.com/taphacoobams)
+
+---
+
+> Projet open-source visant à faciliter l'accès aux données administratives du Sénégal 🇸🇳

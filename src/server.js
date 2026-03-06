@@ -5,8 +5,7 @@ const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swagger.json');
+const path = require('path');
 const routes = require('./routes');
 
 const app = express();
@@ -32,10 +31,35 @@ app.use(limiter);
 // JSON parsing
 app.use(express.json());
 
-// Swagger docs
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  customSiteTitle: 'Frontières API – Documentation',
-}));
+// Welcome route
+app.get('/', (req, res) => {
+  res.json({
+    welcome: "Bienvenue dans l'API du Découpage Administratif du Sénégal. Cette API recense l'ensemble des Régions, Départements, Communes et Localités du pays pour faciliter l'intégration dans vos applications. Pour plus d'informations, rendez-vous sur https://github.com/taphacoobams/frontieres_api"
+  });
+});
+
+// OpenAPI spec
+app.get('/api/openapi.json', (req, res) => {
+  res.sendFile(path.join(__dirname, 'swagger.json'));
+});
+
+// Documentation Redoc
+app.get('/docs', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>API Découpage Administratif du Sénégal - Documentation</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+  <style>body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <redoc spec-url='/api/openapi.json'></redoc>
+  <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+</body>
+</html>`);
+});
 
 // Routes
 app.use('/api', routes);
@@ -92,7 +116,8 @@ if (require.main === module) {
     console.log(`  GET /api/map/regions`);
     console.log(`  GET /api/map/departements`);
     console.log(`  GET /api/map/communes`);
-    console.log(`  GET /api/docs`);
+    console.log(`  GET /docs`);
+    console.log(`  GET /api/openapi.json`);
   });
 }
 
