@@ -61,8 +61,8 @@
                     "regions": { "type": "integer", "example": 14 },
                     "departements": { "type": "integer", "example": 46 },
                     "communes": { "type": "integer", "example": 552 },
-                    "localites": { "type": "integer", "example": 16471 },
-                    "localites_with_coordinates": { "type": "integer", "example": 16471 }
+                    "localites": { "type": "integer", "example": 19795 },
+                    "localites_with_coordinates": { "type": "integer", "example": 19795 }
                   }
                 }
               }
@@ -342,7 +342,7 @@
           "region_id": { "type": "integer" },
           "latitude": { "type": "number", "example": 14.75 },
           "longitude": { "type": "number", "example": -17.52 },
-          "source": { "type": "string", "enum": ["sn_txt", "geojson"], "example": "geojson" }
+          "source": { "type": "string", "enum": ["openstreetmap", "centroide_commune"], "example": "openstreetmap" }
         }
       },
       "FeatureCollection": {

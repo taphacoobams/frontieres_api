@@ -10,6 +10,7 @@
     "import-localites": "node src/scripts/import-localites.js",
     "match-geojson": "node src/scripts/match-geojson.js",
     "fallback-centroid": "node src/scripts/fallback-centroid.js",
+    "rebuild-localites": "node src/scripts/rebuild-localites.js",
     "test": "jest --forceExit --detectOpenHandles"
   },
   "dependencies": {
