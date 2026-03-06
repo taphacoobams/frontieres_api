@@ -34,7 +34,7 @@ app.use(express.json());
 // Welcome route
 app.get('/', (req, res) => {
   res.json({
-    welcome: "Bienvenue dans l'API du Découpage Administratif du Sénégal. Cette API recense l'ensemble des Régions, Départements, Communes et Localités du pays pour faciliter l'intégration dans vos applications. Pour plus d'informations, rendez-vous sur https://github.com/taphacoobams/frontieres_api"
+    welcome: "Bienvenue dans l'API des Frontières Administratives du Sénégal. Cette API fournit les polygones géographiques (GeoJSON) et les données des 14 régions, 46 départements, 552 communes et 25 515 localités du Sénégal. Pour plus d'informations, rendez-vous sur https://github.com/taphacoobams/frontieres_api"
   });
 });
 

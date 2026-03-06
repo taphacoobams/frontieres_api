@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "API Découpage Administratif du Sénégal",
-    "description": "API REST pour accéder aux données du découpage administratif du Sénégal. Cette API permet de récupérer les informations sur les 14 régions, les 46 départements, les 552 communes et les 25 515 localités du Sénégal.",
+    "title": "Frontières API – Sénégal",
+    "description": "API REST des frontières administratives du Sénégal. Fournit les polygones géographiques (GeoJSON) et les données des 14 régions, 46 départements, 552 communes et 25 515 localités du Sénégal.",
     "version": "1.0.0",
     "contact": {
       "name": "taphacoobams",

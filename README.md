@@ -1,6 +1,6 @@
-# Découpage Administratif API 🇸🇳
+# Frontières API – Sénégal 🇸🇳
 
-API REST construite avec **Node.js (Express)** et **PostgreSQL/PostGIS** fournissant le découpage administratif complet du Sénégal : **régions, départements, communes, localités** avec polygones géographiques.
+API REST construite avec **Node.js (Express)** et **PostgreSQL/PostGIS** fournissant les **frontières administratives** du Sénégal : **régions, départements, communes** (polygones GeoJSON) et **25 515 localités** géolocalisées.
 
 ---
 
