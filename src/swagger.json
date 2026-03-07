@@ -16,11 +16,12 @@
   "tags": [
     { "name": "Health", "description": "Statut du service" },
     { "name": "Stats", "description": "Statistiques globales" },
+    { "name": "Pays", "description": "Pays (Sénégal) — statistiques et géométrie nationale" },
     { "name": "Regions", "description": "Régions (14)" },
     { "name": "Departements", "description": "Départements (46)" },
     { "name": "Communes", "description": "Communes (552)" },
     { "name": "Localites", "description": "Localités géolocalisées" },
-    { "name": "Map", "description": "GeoJSON FeatureCollections pour cartographie" }
+    { "name": "Map", "description": "GeoJSON Features et FeatureCollections pour cartographie" }
   ],
   "paths": {
     "/health": {
@@ -67,6 +68,38 @@
                     "localites_with_population": { "type": "integer", "example": 18000 }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pays": {
+      "get": {
+        "tags": ["Pays"],
+        "summary": "Statistiques nationales du Sénégal",
+        "responses": {
+          "200": {
+            "description": "Données nationales",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Pays" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/map/pays": {
+      "get": {
+        "tags": ["Map", "Pays"],
+        "summary": "GeoJSON Feature du polygone national du Sénégal",
+        "responses": {
+          "200": {
+            "description": "GeoJSON Feature MultiPolygon avec statistiques nationales",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaysFeature" }
               }
             }
           }
@@ -379,6 +412,38 @@
           "superficie_km2": { "type": "number", "example": 7.69, "description": "Superficie du polygone Voronoï (km²)" },
           "population": { "type": "integer", "example": 350, "description": "Population issue du recensement ANSD 2023" },
           "densite": { "type": "number", "example": 45.5, "description": "Densité (hab/km²)" }
+        }
+      },
+      "Pays": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Sénégal" },
+          "superficie_km2": { "type": "number", "example": 196629.32 },
+          "population": { "type": "integer", "example": 22488341 },
+          "densite": { "type": "number", "example": 114.37 }
+        }
+      },
+      "PaysFeature": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "example": "Feature" },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer", "example": 1 },
+              "name": { "type": "string", "example": "Sénégal" },
+              "superficie_km2": { "type": "number", "example": 196629.32 },
+              "population": { "type": "integer", "example": 22488341 },
+              "densite": { "type": "number", "example": 114.37 }
+            }
+          },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "example": "MultiPolygon" },
+              "coordinates": { "type": "array" }
+            }
+          }
         }
       },
       "FeatureCollection": {

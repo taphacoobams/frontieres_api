@@ -6,6 +6,7 @@ API REST construite avec **Node.js / Express** et **PostgreSQL / PostGIS** fourn
 
 ## 🚀 Fonctionnalités
 
+* 🇸🇳 **Sénégal (pays)** — polygone national, population, densité, superficie
 * 📍 **14 régions** — polygones MultiPolygon, population, densité, superficie
 * 🏘️ **46 départements** — polygones MultiPolygon, population, densité, superficie
 * 🏠 **552 communes** — polygones MultiPolygon, population, densité, superficie
@@ -44,6 +45,7 @@ Les densités (`densite`, en hab/km²) sont calculées à partir de la populatio
 -- Toutes les entités utilisent le même type géométrique
 geometry(MultiPolygon, 4326)
 
+pays          (id, name, geometry, superficie_km2, population BIGINT, densite)
 regions       (id, name, geometry, superficie_km2, population, densite)
 departements  (id, name, region_id, geometry, superficie_km2, population, densite)
 communes      (id, name, departement_id, region_id, geometry, superficie_km2, population, densite)
@@ -132,7 +134,7 @@ L'API est disponible sur `http://localhost:3005`.
 ```bash
 # Export (tables actuelles)
 pg_dump -Fc -d frontieres_db \
-  -t regions -t departements -t communes -t localites \
+  -t pays -t regions -t departements -t communes -t localites \
   > dump.sql
 
 # Import sur Render (External Database URL)
@@ -140,9 +142,24 @@ pg_restore -d "postgres://user:pass@host/dbname" \
   --no-owner --no-acl dump.sql
 ```
 
+### Importer le polygone national
+
+```bash
+npm run import-pays
+```
+
+Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne la population des localités, et calcule la densité.
+
 ---
 
 ## 📚 Endpoints
+
+### Pays
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/api/pays` | Statistiques nationales (population, superficie, densité) |
+| `GET` | `/api/map/pays` | GeoJSON Feature du polygone national |
 
 ### Régions
 
@@ -195,7 +212,7 @@ pg_restore -d "postgres://user:pass@host/dbname" \
 
 ---
 
-## � Format de réponse GeoJSON
+## 📐 Format de réponse GeoJSON
 
 Chaque entité est retournée comme un `Feature` GeoJSON avec :
 
@@ -214,6 +231,17 @@ Chaque entité est retournée comme un `Feature` GeoJSON avec :
 ```
 
 Les localités incluent également `lat`, `lon`, et `elevation`.
+
+Exemple `/api/pays` :
+
+```json
+{
+  "name": "Sénégal",
+  "superficie_km2": 196629.32,
+  "population": 22488341,
+  "densite": 114.37
+}
+```
 
 ---
 
