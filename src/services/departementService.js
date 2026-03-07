@@ -23,33 +23,12 @@ const DepartementService = {
     if (cached) return cached;
 
     const rows = await Departement.findAll(regionId);
-    const features = rows.map((row) => ({
-      type: 'Feature',
-      properties: {
-        id: row.id, name: row.name, region_id: row.region_id,
-        code: row.code, lat: row.lat, lon: row.lon, elevation: row.elevation,
-        superficie_km2: row.superficie_km2,
-        population: row.population, densite: row.densite,
-      },
-      geometry: row.geometry,
-    }));
-    setCache(cacheKey, features);
-    return features;
+    setCache(cacheKey, rows);
+    return rows;
   },
 
   async getById(id) {
-    const row = await Departement.findById(id);
-    if (!row) return null;
-    return {
-      type: 'Feature',
-      properties: {
-        id: row.id, name: row.name, region_id: row.region_id,
-        code: row.code, lat: row.lat, lon: row.lon, elevation: row.elevation,
-        superficie_km2: row.superficie_km2,
-        population: row.population, densite: row.densite,
-      },
-      geometry: row.geometry,
-    };
+    return Departement.findById(id);
   },
 
   async getFeatureCollection(regionId) {

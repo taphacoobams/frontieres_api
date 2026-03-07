@@ -25,6 +25,16 @@ const DepartementController = {
     }
   },
 
+  async getByRegion(req, res) {
+    try {
+      const features = await DepartementService.getAll(req.params.id);
+      res.json(features);
+    } catch (err) {
+      console.error('Erreur GET /regions/:id/departements :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
   async getFeatureCollection(req, res) {
     try {
       const regionId = req.query.region_id || null;

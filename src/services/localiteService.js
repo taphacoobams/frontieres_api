@@ -43,7 +43,7 @@ const LocaliteService = {
   },
 
   async getFeatureCollection({ communeId, departementId, regionId, limit } = {}) {
-    const cacheKey = `localites:fc:${communeId || ''}:${departementId || ''}:${regionId || ''}:${limit || 500}`;
+    const cacheKey = `localites:fc:${communeId || ''}:${departementId || ''}:${regionId || ''}:${limit || 'all'}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 

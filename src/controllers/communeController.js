@@ -25,6 +25,16 @@ const CommuneController = {
     }
   },
 
+  async getByDepartement(req, res) {
+    try {
+      const features = await CommuneService.getAll(req.params.id);
+      res.json(features);
+    } catch (err) {
+      console.error('Erreur GET /departements/:id/communes :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
   async getFeatureCollection(req, res) {
     try {
       const departementId = req.query.departement_id || null;

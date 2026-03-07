@@ -23,33 +23,12 @@ const RegionService = {
     if (cached) return cached;
 
     const rows = await Region.findAll();
-    const features = rows.map((row) => ({
-      type: 'Feature',
-      properties: {
-        id: row.id, name: row.name, code: row.code,
-        lat: row.lat, lon: row.lon, elevation: row.elevation,
-        superficie_km2: row.superficie_km2,
-        population: row.population, densite: row.densite,
-      },
-      geometry: row.geometry,
-    }));
-    setCache(cacheKey, features);
-    return features;
+    setCache(cacheKey, rows);
+    return rows;
   },
 
   async getById(id) {
-    const row = await Region.findById(id);
-    if (!row) return null;
-    return {
-      type: 'Feature',
-      properties: {
-        id: row.id, name: row.name, code: row.code,
-        lat: row.lat, lon: row.lon, elevation: row.elevation,
-        superficie_km2: row.superficie_km2,
-        population: row.population, densite: row.densite,
-      },
-      geometry: row.geometry,
-    };
+    return Region.findById(id);
   },
 
   async getFeatureCollection() {

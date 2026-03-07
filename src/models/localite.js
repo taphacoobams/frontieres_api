@@ -68,7 +68,7 @@ const Localite = {
     return result.rows;
   },
 
-  async findAllAsFeatureCollection({ communeId, departementId, regionId, limit = 500 } = {}) {
+  async findAllAsFeatureCollection({ communeId, departementId, regionId, limit } = {}) {
     const conditions = [];
     const params = [];
     let paramIdx = 1;
@@ -87,7 +87,11 @@ const Localite = {
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-    params.push(limit);
+    let limitClause = '';
+    if (limit) {
+      limitClause = `LIMIT $${paramIdx}`;
+      params.push(limit);
+    }
 
     const result = await pool.query(`
       SELECT json_build_object(
@@ -116,7 +120,7 @@ const Localite = {
         SELECT * FROM localites
         ${whereClause}
         ORDER BY name
-        LIMIT $${paramIdx}
+        ${limitClause}
       ) sub
     `, params);
     return result.rows[0].geojson;

@@ -23,35 +23,12 @@ const CommuneService = {
     if (cached) return cached;
 
     const rows = await Commune.findAll(departementId);
-    const features = rows.map((row) => ({
-      type: 'Feature',
-      properties: {
-        id: row.id, name: row.name,
-        region_id: row.region_id, departement_id: row.departement_id,
-        lat: row.lat, lon: row.lon, elevation: row.elevation,
-        superficie_km2: row.superficie_km2,
-        population: row.population, densite: row.densite,
-      },
-      geometry: row.geometry,
-    }));
-    setCache(cacheKey, features);
-    return features;
+    setCache(cacheKey, rows);
+    return rows;
   },
 
   async getById(id) {
-    const row = await Commune.findById(id);
-    if (!row) return null;
-    return {
-      type: 'Feature',
-      properties: {
-        id: row.id, name: row.name,
-        region_id: row.region_id, departement_id: row.departement_id,
-        lat: row.lat, lon: row.lon, elevation: row.elevation,
-        superficie_km2: row.superficie_km2,
-        population: row.population, densite: row.densite,
-      },
-      geometry: row.geometry,
-    };
+    return Commune.findById(id);
   },
 
   async getFeatureCollection(departementId) {
