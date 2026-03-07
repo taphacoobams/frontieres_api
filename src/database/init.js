@@ -73,6 +73,19 @@ const STEPS = [
 )`
   },
 
+  // ── 2b. Table pays
+  {
+    label: 'Table pays',
+    sql: `CREATE TABLE IF NOT EXISTS pays (
+  id             SERIAL PRIMARY KEY,
+  name           TEXT NOT NULL,
+  geometry       geometry(MultiPolygon, 4326),
+  superficie_km2 DOUBLE PRECISION,
+  population     BIGINT,
+  densite        DOUBLE PRECISION
+)`
+  },
+
   // ── 3. Migrations pour bases existantes ────────────────────────
   // ADD COLUMN IF NOT EXISTS garantit que les colonnes manquantes
   // sont ajoutées même si les tables existaient déjà.
@@ -108,7 +121,14 @@ const STEPS = [
   { label: 'Migration localites.densite',         sql: "ALTER TABLE localites     ADD COLUMN IF NOT EXISTS densite         DOUBLE PRECISION" },
   { label: 'Migration localites.normalized_name', sql: "ALTER TABLE localites     ADD COLUMN IF NOT EXISTS normalized_name TEXT" },
 
+  // pays
+  { label: 'Migration pays.geometry',       sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS geometry       geometry(MultiPolygon, 4326)" },
+  { label: 'Migration pays.superficie_km2', sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS superficie_km2 DOUBLE PRECISION" },
+  { label: 'Migration pays.population',     sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS population     BIGINT" },
+  { label: 'Migration pays.densite',        sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS densite        DOUBLE PRECISION" },
+
   // ── 4. Index spatiaux GIST ─────────────────────────────────────
+  { label: 'Index GIST pays',         sql: 'CREATE INDEX IF NOT EXISTS idx_pays_geom         ON pays         USING GIST (geometry)' },
   { label: 'Index GIST regions',      sql: 'CREATE INDEX IF NOT EXISTS idx_regions_geom      ON regions      USING GIST (geometry)' },
   { label: 'Index GIST departements', sql: 'CREATE INDEX IF NOT EXISTS idx_departements_geom ON departements USING GIST (geometry)' },
   { label: 'Index GIST communes',     sql: 'CREATE INDEX IF NOT EXISTS idx_communes_geom     ON communes     USING GIST (geometry)' },
