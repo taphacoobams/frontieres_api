@@ -26,9 +26,8 @@ const DepartementService = {
     const features = rows.map((row) => ({
       type: 'Feature',
       properties: {
-        id: row.id, departement_id: row.departement_id,
-        region_id: row.region_id, name: row.name,
-        lat: row.lat, lon: row.lon,
+        id: row.id, name: row.name, region_id: row.region_id,
+        code: row.code, lat: row.lat, lon: row.lon, elevation: row.elevation,
         superficie_km2: row.superficie_km2,
         population: row.population, densite: row.densite,
       },
@@ -44,9 +43,8 @@ const DepartementService = {
     return {
       type: 'Feature',
       properties: {
-        id: row.id, departement_id: row.departement_id,
-        region_id: row.region_id, name: row.name,
-        lat: row.lat, lon: row.lon,
+        id: row.id, name: row.name, region_id: row.region_id,
+        code: row.code, lat: row.lat, lon: row.lon, elevation: row.elevation,
         superficie_km2: row.superficie_km2,
         population: row.population, densite: row.densite,
       },

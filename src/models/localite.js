@@ -4,7 +4,7 @@ const Localite = {
   async findAll({ communeId, departementId, regionId, limit, offset } = {}) {
     let query = `
       SELECT id, name, commune_id, departement_id, region_id,
-             latitude, longitude, source, elevation,
+             lat, lon, elevation,
              superficie_km2, population, densite,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM localites
@@ -45,7 +45,7 @@ const Localite = {
   async findById(id) {
     const result = await pool.query(`
       SELECT id, name, commune_id, departement_id, region_id,
-             latitude, longitude, source, elevation,
+             lat, lon, elevation,
              superficie_km2, population, densite,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM localites
@@ -57,7 +57,7 @@ const Localite = {
   async search(q, { limit = 50 } = {}) {
     const result = await pool.query(`
       SELECT id, name, commune_id, departement_id, region_id,
-             latitude, longitude, source, elevation,
+             lat, lon, elevation,
              superficie_km2, population, densite,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM localites
@@ -101,13 +101,12 @@ const Localite = {
               'commune_id',     commune_id,
               'departement_id', departement_id,
               'region_id',      region_id,
-              'lat',            latitude,
-              'lon',            longitude,
+              'lat',            lat,
+              'lon',            lon,
               'elevation',      elevation,
               'superficie_km2', superficie_km2,
               'population',     population,
-              'densite',        densite,
-              'source',         source
+              'densite',        densite
             ),
             'geometry', ST_AsGeoJSON(geometry)::json
           )
@@ -142,7 +141,7 @@ const Localite = {
       params.push(filters.regionId);
     }
     if (filters.withCoords) {
-      conditions.push('latitude IS NOT NULL');
+      conditions.push('lat IS NOT NULL');
     }
 
     if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
@@ -157,7 +156,7 @@ const Localite = {
         (SELECT COUNT(*) FROM departements) AS departements,
         (SELECT COUNT(*) FROM communes)    AS communes,
         (SELECT COUNT(*) FROM localites)   AS localites,
-        (SELECT COUNT(*) FROM localites WHERE latitude IS NOT NULL) AS localites_with_coordinates,
+        (SELECT COUNT(*) FROM localites WHERE lat IS NOT NULL) AS localites_with_coordinates,
         (SELECT COUNT(*) FROM localites WHERE population IS NOT NULL) AS localites_with_population
     `);
     return result.rows[0];

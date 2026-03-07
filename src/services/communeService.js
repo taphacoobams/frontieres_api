@@ -26,9 +26,9 @@ const CommuneService = {
     const features = rows.map((row) => ({
       type: 'Feature',
       properties: {
-        id: row.id, commune_id: row.commune_id,
-        departement_id: row.departement_id, name: row.name,
-        lat: row.lat, lon: row.lon,
+        id: row.id, name: row.name,
+        region_id: row.region_id, departement_id: row.departement_id,
+        lat: row.lat, lon: row.lon, elevation: row.elevation,
         superficie_km2: row.superficie_km2,
         population: row.population, densite: row.densite,
       },
@@ -44,9 +44,9 @@ const CommuneService = {
     return {
       type: 'Feature',
       properties: {
-        id: row.id, commune_id: row.commune_id,
-        departement_id: row.departement_id, name: row.name,
-        lat: row.lat, lon: row.lon,
+        id: row.id, name: row.name,
+        region_id: row.region_id, departement_id: row.departement_id,
+        lat: row.lat, lon: row.lon, elevation: row.elevation,
         superficie_km2: row.superficie_km2,
         population: row.population, densite: row.densite,
       },

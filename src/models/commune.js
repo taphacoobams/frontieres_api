@@ -3,7 +3,7 @@ const pool = require('../database/connection');
 const Commune = {
   async findAll(departementId) {
     let query = `
-      SELECT id, commune_id, departement_id, name, lat, lon,
+      SELECT id, name, region_id, departement_id, lat, lon, elevation,
              superficie_km2, population, densite,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM communes
@@ -20,7 +20,7 @@ const Commune = {
 
   async findById(id) {
     const result = await pool.query(`
-      SELECT id, commune_id, departement_id, name, lat, lon,
+      SELECT id, name, region_id, departement_id, lat, lon, elevation,
              superficie_km2, population, densite,
              ST_AsGeoJSON(geometry)::json AS geometry
       FROM communes
@@ -44,11 +44,12 @@ const Commune = {
             'type', 'Feature',
             'properties', json_build_object(
               'id',             id,
-              'commune_id',     commune_id,
-              'departement_id', departement_id,
               'name',           name,
+              'region_id',      region_id,
+              'departement_id', departement_id,
               'lat',            lat,
               'lon',            lon,
+              'elevation',      elevation,
               'superficie_km2', superficie_km2,
               'population',     population,
               'densite',        densite
