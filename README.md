@@ -6,19 +6,20 @@ API REST construite avec **Node.js / Express** et **PostgreSQL / PostGIS** fourn
 
 ## 🚀 Fonctionnalités
 
-* 🇸🇳 **Sénégal (pays)** — polygone national, population, densité, superficie
-* 📍 **14 régions** — polygones MultiPolygon, population, densité, superficie
-* 🏘️ **46 départements** — polygones MultiPolygon, population, densité, superficie
-* 🏠 **552 communes** — polygones MultiPolygon, population, densité, superficie
+* 🇸🇳 **Sénégal (pays)** — polygone national, coordonnées, population, densité, superficie
+* 📍 **14 régions** — polygones MultiPolygon, coordonnées, population, densité, superficie
+* 🏘️ **46 départements** — polygones MultiPolygon, coordonnées, population, densité, superficie
+* 🏠 **552 communes** — polygones MultiPolygon, coordonnées, population, densité, superficie
 * 📌 **25 515 localités** — polygones Voronoï, coordonnées GPS, population (ANSD 2023), densité
-* 🗺️ **FeatureCollections GeoJSON** pour Leaflet, Mapbox, OpenLayers, D3.js
+* 🗺️ **FeatureCollections GeoJSON** pour Leaflet, Mapbox, OpenLayers, D3.js, SVG
 * 🔍 Recherche par nom avec filtrage multi-niveaux (commune, département, région)
 * 📊 Statistiques globales
 * 📄 Pagination sur les localités (`limit`, `offset`)
+* 🔗 Routes imbriquées (`/regions/:id/departements`, `/departements/:id/communes`, `/communes/:id/localites`)
 * 🌐 CORS activé
 * 🛡️ Sécurité (Helmet, rate limiting 200 req/15 min)
-* � Documentation interactive (Redoc + OpenAPI)
-* 🧪 34 tests fonctionnels
+* 📖 Documentation interactive (Redoc + OpenAPI)
+* 🧪 Tests fonctionnels
 
 ---
 
@@ -39,19 +40,26 @@ Les densités (`densite`, en hab/km²) sont calculées à partir de la populatio
 
 ---
 
-## �️ Schéma de la base
+## 🗄️ Schéma de la base
+
+Toutes les entités partagent les mêmes colonnes de base : `id`, `name`, `lat`, `lon`, `elevation`, `geometry`, `superficie_km2`, `population`, `densite`.
 
 ```sql
--- Toutes les entités utilisent le même type géométrique
+-- Type géométrique uniforme
 geometry(MultiPolygon, 4326)
 
-pays          (id, name, geometry, superficie_km2, population BIGINT, densite)
-regions       (id, name, geometry, superficie_km2, population, densite)
-departements  (id, name, region_id, geometry, superficie_km2, population, densite)
-communes      (id, name, departement_id, region_id, geometry, superficie_km2, population, densite)
-localites     (id, name, commune_id, departement_id, region_id,
-               lat, lon, elevation, geometry, superficie_km2, population, densite)
+pays          (id, name, lat, lon, elevation, geometry, superficie_km2, population, densite)
+regions       (id, name, code, lat, lon, elevation, geometry, superficie_km2, population, densite)
+departements  (id, name, region_id, code, lat, lon, elevation, geometry, superficie_km2, population, densite)
+communes      (id, name, departement_id, region_id, lat, lon, elevation, geometry, superficie_km2, population, densite)
+localites     (id, name, commune_id, departement_id, region_id, lat, lon, elevation, geometry, superficie_km2, population, densite)
 ```
+
+### Index
+
+* **GIST** sur toutes les colonnes `geometry` (5 tables)
+* **B-tree** sur `region_id`, `departement_id`, `commune_id` (clés de liaison)
+* **GIN trigram** sur `localites.normalized_name` (recherche floue)
 
 ---
 
@@ -97,11 +105,14 @@ NODE_ENV=development
 ## ▶️ Démarrage
 
 ```bash
-# Développement (hot-reload)
-npm run dev
-
 # Initialiser le schéma de la base (à faire une fois)
 npm run init-db
+
+# Ou migrer une base existante (idempotent, peut être relancé)
+npm run migrate-db
+
+# Développement (hot-reload)
+npm run dev
 
 # Production
 node src/server.js
@@ -124,10 +135,10 @@ L'API est disponible sur `http://localhost:3005`.
 
 | Rôle | Commande |
 |------|----------|
-| Build | `npm install && npm run init-db` |
+| Build | `npm install && npm run migrate-db` |
 | Start | `node src/server.js` |
 
-`npm run init-db` crée les tables et index si absents, et **migre automatiquement** les bases existantes (`ADD COLUMN IF NOT EXISTS`). Il est idempotent — peut être relancé sans risque.
+`npm run migrate-db` ajoute les colonnes manquantes (`ADD COLUMN IF NOT EXISTS`), crée les index GIST et B-tree. Il est **idempotent** — peut être relancé sans risque.
 
 ### Importer les données depuis une base locale
 
@@ -158,8 +169,8 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/pays` | Statistiques nationales (population, superficie, densité) |
-| `GET` | `/api/map/pays` | GeoJSON Feature du polygone national |
+| `GET` | `/api/pays` | Données nationales (id, name, lat, lon, elevation, population, superficie, densité) |
+| `GET` | `/api/map/pays` | FeatureCollection GeoJSON du polygone national |
 
 ### Régions
 
@@ -167,6 +178,7 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 |---------|----------|-------------|
 | `GET` | `/api/regions` | Liste des 14 régions |
 | `GET` | `/api/regions/:id` | Région par ID |
+| `GET` | `/api/regions/:id/departements` | Départements d'une région |
 | `GET` | `/api/map/regions` | FeatureCollection GeoJSON |
 
 ### Départements
@@ -176,7 +188,9 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 | `GET` | `/api/departements` | Liste des 46 départements |
 | `GET` | `/api/departements?region_id=1` | Filtrés par région |
 | `GET` | `/api/departements/:id` | Département par ID |
+| `GET` | `/api/departements/:id/communes` | Communes d'un département |
 | `GET` | `/api/map/departements` | FeatureCollection GeoJSON |
+| `GET` | `/api/map/departements?region_id=1` | FeatureCollection filtrée par région |
 
 ### Communes
 
@@ -184,8 +198,12 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 |---------|----------|-------------|
 | `GET` | `/api/communes` | Liste des 552 communes |
 | `GET` | `/api/communes?departement_id=1` | Filtrées par département |
+| `GET` | `/api/communes?region_id=1` | Filtrées par région |
 | `GET` | `/api/communes/:id` | Commune par ID |
+| `GET` | `/api/communes/:id/localites` | Localités d'une commune |
 | `GET` | `/api/map/communes` | FeatureCollection GeoJSON |
+| `GET` | `/api/map/communes?departement_id=1` | FeatureCollection filtrée par département |
+| `GET` | `/api/map/communes?region_id=1` | FeatureCollection filtrée par région |
 
 ### Localités
 
@@ -198,6 +216,10 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 | `GET` | `/api/localites?limit=50&offset=0` | Pagination |
 | `GET` | `/api/localites/:id` | Localité par ID |
 | `GET` | `/api/localites/search?q=dakar` | Recherche par nom (≥ 2 caractères) |
+| `GET` | `/api/map/localites` | FeatureCollection GeoJSON |
+| `GET` | `/api/map/localites?commune_id=1` | FeatureCollection filtrée par commune |
+| `GET` | `/api/map/localites?departement_id=1` | FeatureCollection filtrée par département |
+| `GET` | `/api/map/localites?region_id=1` | FeatureCollection filtrée par région |
 
 > La recherche est insensible à la casse et aux accents.
 
@@ -212,31 +234,43 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 
 ---
 
-## 📐 Format de réponse GeoJSON
+## 📐 Format de réponse
 
-Chaque entité est retournée comme un `Feature` GeoJSON avec :
+### Endpoints `/api/map/*` — GeoJSON FeatureCollection
 
 ```json
 {
-  "type": "Feature",
-  "geometry": { "type": "MultiPolygon", "coordinates": [...] },
-  "properties": {
-    "id": 1,
-    "name": "Dakar",
-    "superficie_km2": 542.6,
-    "population": 4391619,
-    "densite": 8107.84
-  }
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "MultiPolygon", "coordinates": [...] },
+      "properties": {
+        "id": 1,
+        "name": "Dakar",
+        "lat": 14.7167,
+        "lon": -17.4677,
+        "elevation": 12,
+        "superficie_km2": 542.6,
+        "population": 4391619,
+        "densite": 8107.84
+      }
+    }
+  ]
 }
 ```
 
-Les localités incluent également `lat`, `lon`, et `elevation`.
+### Endpoints `/api/*` — Objets plats
 
-Exemple `/api/pays` :
+Les endpoints de données retournent des objets plats (ou tableaux d'objets) :
 
 ```json
 {
+  "id": 1,
   "name": "Sénégal",
+  "lat": 14.4974,
+  "lon": -14.4524,
+  "elevation": null,
   "superficie_km2": 196629.32,
   "population": 22488341,
   "densite": 114.37
