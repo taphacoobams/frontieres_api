@@ -1,40 +1,56 @@
 const pool = require('../database/connection');
 
+const COLUMNS = `id, name, commune_id, departement_id, region_id,
+       lat, lon, elevation,
+       superficie_km2, population, densite,
+       ST_AsGeoJSON(geometry)::json AS geometry`;
+
+const PROPERTIES_SQL = `json_build_object(
+  'id',             id,
+  'name',           name,
+  'commune_id',     commune_id,
+  'departement_id', departement_id,
+  'region_id',      region_id,
+  'lat',            lat,
+  'lon',            lon,
+  'elevation',      elevation,
+  'superficie_km2', superficie_km2,
+  'population',     population,
+  'densite',        densite
+)`;
+
+function buildFilter(filters) {
+  const conditions = [];
+  const params = [];
+  let idx = 1;
+  if (filters.regionId) {
+    conditions.push(`region_id = $${idx++}`);
+    params.push(filters.regionId);
+  }
+  if (filters.departementId) {
+    conditions.push(`departement_id = $${idx++}`);
+    params.push(filters.departementId);
+  }
+  if (filters.communeId) {
+    conditions.push(`commune_id = $${idx++}`);
+    params.push(filters.communeId);
+  }
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+  return { where, params, idx };
+}
+
 const Localite = {
   async findAll({ communeId, departementId, regionId, limit, offset } = {}) {
-    let query = `
-      SELECT id, name, commune_id, departement_id, region_id,
-             lat, lon, elevation,
-             superficie_km2, population, densite,
-             ST_AsGeoJSON(geometry)::json AS geometry
-      FROM localites
-    `;
-    const conditions = [];
-    const params = [];
-    let paramIdx = 1;
-
-    if (regionId) {
-      conditions.push(`region_id = $${paramIdx++}`);
-      params.push(regionId);
-    }
-    if (departementId) {
-      conditions.push(`departement_id = $${paramIdx++}`);
-      params.push(departementId);
-    }
-    if (communeId) {
-      conditions.push(`commune_id = $${paramIdx++}`);
-      params.push(communeId);
-    }
-
-    if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
-    query += ' ORDER BY name';
+    const { where, params, idx } = buildFilter({ communeId, departementId, regionId });
+    let query = `SELECT ${COLUMNS} FROM localites ${where} ORDER BY name`;
+    let nextIdx = idx;
 
     if (limit) {
-      query += ` LIMIT $${paramIdx++}`;
+      query += ` LIMIT $${nextIdx++}`;
       params.push(limit);
     }
     if (offset) {
-      query += ` OFFSET $${paramIdx++}`;
+      query += ` OFFSET $${nextIdx++}`;
       params.push(offset);
     }
 
@@ -43,53 +59,25 @@ const Localite = {
   },
 
   async findById(id) {
-    const result = await pool.query(`
-      SELECT id, name, commune_id, departement_id, region_id,
-             lat, lon, elevation,
-             superficie_km2, population, densite,
-             ST_AsGeoJSON(geometry)::json AS geometry
-      FROM localites
-      WHERE id = $1
-    `, [id]);
+    const result = await pool.query(
+      `SELECT ${COLUMNS} FROM localites WHERE id = $1`, [id]
+    );
     return result.rows[0] || null;
   },
 
   async search(q, { limit = 50 } = {}) {
-    const result = await pool.query(`
-      SELECT id, name, commune_id, departement_id, region_id,
-             lat, lon, elevation,
-             superficie_km2, population, densite,
-             ST_AsGeoJSON(geometry)::json AS geometry
-      FROM localites
-      WHERE name ILIKE $1
-      ORDER BY name
-      LIMIT $2
-    `, [`%${q}%`, limit]);
+    const result = await pool.query(
+      `SELECT ${COLUMNS} FROM localites WHERE name ILIKE $1 ORDER BY name LIMIT $2`,
+      [`%${q}%`, limit]
+    );
     return result.rows;
   },
 
   async findAllAsFeatureCollection({ communeId, departementId, regionId, limit } = {}) {
-    const conditions = [];
-    const params = [];
-    let paramIdx = 1;
-
-    if (regionId) {
-      conditions.push(`region_id = $${paramIdx++}`);
-      params.push(regionId);
-    }
-    if (departementId) {
-      conditions.push(`departement_id = $${paramIdx++}`);
-      params.push(departementId);
-    }
-    if (communeId) {
-      conditions.push(`commune_id = $${paramIdx++}`);
-      params.push(communeId);
-    }
-
-    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+    const { where, params, idx } = buildFilter({ communeId, departementId, regionId });
     let limitClause = '';
     if (limit) {
-      limitClause = `LIMIT $${paramIdx}`;
+      limitClause = `LIMIT $${idx}`;
       params.push(limit);
     }
 
@@ -99,26 +87,14 @@ const Localite = {
         'features', COALESCE(json_agg(
           json_build_object(
             'type', 'Feature',
-            'properties', json_build_object(
-              'id',             id,
-              'name',           name,
-              'commune_id',     commune_id,
-              'departement_id', departement_id,
-              'region_id',      region_id,
-              'lat',            lat,
-              'lon',            lon,
-              'elevation',      elevation,
-              'superficie_km2', superficie_km2,
-              'population',     population,
-              'densite',        densite
-            ),
+            'properties', ${PROPERTIES_SQL},
             'geometry', ST_AsGeoJSON(geometry)::json
           )
         ORDER BY name), '[]'::json)
       ) AS geojson
       FROM (
         SELECT * FROM localites
-        ${whereClause}
+        ${where}
         ORDER BY name
         ${limitClause}
       ) sub
@@ -127,39 +103,23 @@ const Localite = {
   },
 
   async count(filters = {}) {
-    let query = 'SELECT COUNT(*) FROM localites';
-    const conditions = [];
-    const params = [];
-    let paramIdx = 1;
-
-    if (filters.communeId) {
-      conditions.push(`commune_id = $${paramIdx++}`);
-      params.push(filters.communeId);
-    }
-    if (filters.departementId) {
-      conditions.push(`departement_id = $${paramIdx++}`);
-      params.push(filters.departementId);
-    }
-    if (filters.regionId) {
-      conditions.push(`region_id = $${paramIdx++}`);
-      params.push(filters.regionId);
-    }
+    const { where, params } = buildFilter(filters);
     if (filters.withCoords) {
-      conditions.push('lat IS NOT NULL');
+      const w = where ? where + ' AND lat IS NOT NULL' : 'WHERE lat IS NOT NULL';
+      const result = await pool.query(`SELECT COUNT(*) FROM localites ${w}`, params);
+      return parseInt(result.rows[0].count, 10);
     }
-
-    if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
-    const result = await pool.query(query, params);
+    const result = await pool.query(`SELECT COUNT(*) FROM localites ${where}`, params);
     return parseInt(result.rows[0].count, 10);
   },
 
   async getStats() {
     const result = await pool.query(`
       SELECT
-        (SELECT COUNT(*) FROM regions)     AS regions,
+        (SELECT COUNT(*) FROM regions)      AS regions,
         (SELECT COUNT(*) FROM departements) AS departements,
-        (SELECT COUNT(*) FROM communes)    AS communes,
-        (SELECT COUNT(*) FROM localites)   AS localites,
+        (SELECT COUNT(*) FROM communes)     AS communes,
+        (SELECT COUNT(*) FROM localites)    AS localites,
         (SELECT COUNT(*) FROM localites WHERE lat IS NOT NULL) AS localites_with_coordinates,
         (SELECT COUNT(*) FROM localites WHERE population IS NOT NULL) AS localites_with_population
     `);

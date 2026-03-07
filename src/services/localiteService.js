@@ -1,20 +1,5 @@
 const Localite = require('../models/localite');
-
-const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
-    return entry.data;
-  }
-  cache.delete(key);
-  return null;
-}
-
-function setCache(key, data) {
-  cache.set(key, { data, timestamp: Date.now() });
-}
+const { getCached, setCache } = require('./cache');
 
 const LocaliteService = {
   async getAll({ communeId, departementId, regionId, limit, offset } = {}) {
@@ -28,8 +13,7 @@ const LocaliteService = {
   },
 
   async getById(id) {
-    const row = await Localite.findById(id);
-    return row || null;
+    return Localite.findById(id);
   },
 
   async search(q, options) {

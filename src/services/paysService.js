@@ -1,18 +1,5 @@
 const Pays = require('../models/pays');
-
-const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (entry && Date.now() - entry.timestamp < CACHE_TTL) return entry.data;
-  cache.delete(key);
-  return null;
-}
-
-function setCache(key, data) {
-  cache.set(key, { data, timestamp: Date.now() });
-}
+const { getCached, setCache } = require('./cache');
 
 const PaysService = {
   async get() {
@@ -20,17 +7,9 @@ const PaysService = {
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const row = await Pays.find();
-    if (!row) return null;
-
-    const data = {
-      name: row.name,
-      superficie_km2: row.superficie_km2,
-      population: row.population,
-      densite: row.densite,
-    };
-    setCache(cacheKey, data);
-    return data;
+    const row = await Pays.findById();
+    setCache(cacheKey, row);
+    return row;
   },
 
   async getFeature() {
@@ -41,6 +20,16 @@ const PaysService = {
     const feature = await Pays.findAsFeature();
     setCache(cacheKey, feature);
     return feature;
+  },
+
+  async getFeatureCollection() {
+    const cacheKey = 'pays:fc';
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
+    const fc = await Pays.findAllAsFeatureCollection();
+    setCache(cacheKey, fc);
+    return fc;
   },
 };
 

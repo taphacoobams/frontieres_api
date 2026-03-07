@@ -12,11 +12,10 @@ const PaysController = {
     }
   },
 
-  async getFeature(req, res) {
+  async getFeatureCollection(req, res) {
     try {
-      const feature = await PaysService.getFeature();
-      if (!feature) return res.status(404).json({ error: 'Géométrie pays non trouvée' });
-      res.json(feature);
+      const fc = await PaysService.getFeatureCollection();
+      res.json(fc);
     } catch (err) {
       console.error('Erreur GET /map/pays :', err.message);
       res.status(500).json({ error: 'Erreur serveur' });

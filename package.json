@@ -15,6 +15,7 @@
     "voronoi-localites": "node src/scripts/voronoi-localites.js",
     "enrich-all": "node src/scripts/update-departements.js && node src/scripts/fix-pikine-communes.js && node src/scripts/add-attributes.js && node src/scripts/voronoi-localites.js",
     "migrate": "node src/scripts/migrate-tables.js",
+    "migrate-db": "node src/database/migrate.js",
     "download-ansd": "node src/scripts/download-ansd-csv.js",
     "import-population": "node src/scripts/import-population.js",
     "compute-densite": "node src/scripts/compute-densite.js",

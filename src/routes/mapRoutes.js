@@ -7,7 +7,7 @@ const LocaliteController = require('../controllers/localiteController');
 
 const router = Router();
 
-router.get('/pays', PaysController.getFeature);
+router.get('/pays', PaysController.getFeatureCollection);
 router.get('/regions', RegionController.getFeatureCollection);
 router.get('/departements', DepartementController.getFeatureCollection);
 router.get('/communes', CommuneController.getFeatureCollection);

@@ -90,6 +90,9 @@ const STEPS = [
     sql: `CREATE TABLE IF NOT EXISTS pays (
   id             SERIAL PRIMARY KEY,
   name           TEXT NOT NULL,
+  lat            DOUBLE PRECISION,
+  lon            DOUBLE PRECISION,
+  elevation      DOUBLE PRECISION,
   geometry       geometry(MultiPolygon, 4326),
   superficie_km2 DOUBLE PRECISION,
   population     BIGINT,
@@ -144,6 +147,9 @@ const STEPS = [
   { label: 'Migration localites.normalized_name', sql: "ALTER TABLE localites     ADD COLUMN IF NOT EXISTS normalized_name TEXT" },
 
   // pays
+  { label: 'Migration pays.lat',            sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS lat            DOUBLE PRECISION" },
+  { label: 'Migration pays.lon',            sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS lon            DOUBLE PRECISION" },
+  { label: 'Migration pays.elevation',      sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS elevation      DOUBLE PRECISION" },
   { label: 'Migration pays.geometry',       sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS geometry       geometry(MultiPolygon, 4326)" },
   { label: 'Migration pays.superficie_km2', sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS superficie_km2 DOUBLE PRECISION" },
   { label: 'Migration pays.population',     sql: "ALTER TABLE pays ADD COLUMN IF NOT EXISTS population     BIGINT" },

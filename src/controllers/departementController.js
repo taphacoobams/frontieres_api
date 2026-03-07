@@ -38,7 +38,7 @@ const DepartementController = {
   async getFeatureCollection(req, res) {
     try {
       const regionId = req.query.region_id || null;
-      const fc = await DepartementService.getFeatureCollection(regionId);
+      const fc = await DepartementService.getFeatureCollection({ regionId });
       res.json(fc);
     } catch (err) {
       console.error('Erreur GET /map/departements :', err.message);

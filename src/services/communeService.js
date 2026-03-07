@@ -1,28 +1,14 @@
 const Commune = require('../models/commune');
-
-const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
-    return entry.data;
-  }
-  cache.delete(key);
-  return null;
-}
-
-function setCache(key, data) {
-  cache.set(key, { data, timestamp: Date.now() });
-}
+const { getCached, setCache } = require('./cache');
 
 const CommuneService = {
-  async getAll(departementId) {
-    const cacheKey = `communes:all:${departementId || 'none'}`;
+  async getAll(filters = {}) {
+    const f = typeof filters === 'object' ? filters : { departementId: filters };
+    const cacheKey = `communes:all:${f.regionId || ''}:${f.departementId || ''}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const rows = await Commune.findAll(departementId);
+    const rows = await Commune.findAll(f);
     setCache(cacheKey, rows);
     return rows;
   },
@@ -31,12 +17,12 @@ const CommuneService = {
     return Commune.findById(id);
   },
 
-  async getFeatureCollection(departementId) {
-    const cacheKey = `communes:fc:${departementId || 'none'}`;
+  async getFeatureCollection({ regionId, departementId } = {}) {
+    const cacheKey = `communes:fc:${regionId || ''}:${departementId || ''}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const fc = await Commune.findAllAsFeatureCollection(departementId);
+    const fc = await Commune.findAllAsFeatureCollection({ regionId, departementId });
     setCache(cacheKey, fc);
     return fc;
   },
