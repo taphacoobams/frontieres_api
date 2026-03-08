@@ -2,122 +2,119 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Frontières API – Sénégal",
-    "description": "API REST des frontières administratives du Sénégal. Fournit les polygones géographiques (GeoJSON) et les données des 14 régions, 46 départements, 552 communes et 25 515 localités du Sénégal.",
-    "version": "2.0.0",
+    "description": "API REST des frontières administratives du Sénégal.\n\nFournit les polygones géographiques (GeoJSON MultiPolygon, SRID 4326) et les données démographiques (population ANSD 2023) des **14 régions**, **46 départements**, **552 communes** et **25 515 localités** du Sénégal.\n\n### Architecture\n\n- **`/api/*`** — Données tabulaires (objets plats avec géométrie)\n- **`/api/map/*`** — GeoJSON FeatureCollections prêtes pour la cartographie\n- **Routes imbriquées** — Navigation hiérarchique (région → départements → communes → localités)\n\n### Schéma uniforme\n\nToutes les entités partagent les colonnes : `id`, `name`, `lat`, `lon`, `elevation`, `geometry`, `superficie_km2`, `population`, `densite`.\n\n### Performance\n\n- Index **GIST** sur toutes les colonnes `geometry`\n- Index **B-tree** sur les clés de liaison (`region_id`, `departement_id`, `commune_id`)\n- Index **GIN trigram** pour la recherche floue sur les localités\n- Cache en mémoire (TTL 5 min)",
+    "version": "2.1.0",
     "contact": {
       "name": "taphacoobams",
-      "url": "https://github.com/taphacoobams/frontieres_api",
-      "email": "support@example.com"
+      "url": "https://github.com/taphacoobams/frontieres_api"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
     }
   },
+  "externalDocs": {
+    "description": "Dépôt GitHub",
+    "url": "https://github.com/taphacoobams/frontieres_api"
+  },
   "servers": [
-    { "url": "http://localhost:3005", "description": "Local" }
+    { "url": "http://localhost:3005", "description": "Développement local" },
+    { "url": "https://frontieres-api.onrender.com", "description": "Production (Render)" }
   ],
   "tags": [
-    { "name": "Health", "description": "Statut du service" },
-    { "name": "Stats", "description": "Statistiques globales" },
-    { "name": "Pays", "description": "Pays (Sénégal) — statistiques et géométrie nationale" },
-    { "name": "Regions", "description": "Régions (14)" },
-    { "name": "Departements", "description": "Départements (46)" },
-    { "name": "Communes", "description": "Communes (552)" },
-    { "name": "Localites", "description": "Localités géolocalisées" },
-    { "name": "Map", "description": "GeoJSON Features et FeatureCollections pour cartographie" }
+    { "name": "Health", "description": "Statut du service et de la base de données" },
+    { "name": "Stats", "description": "Compteurs globaux de toutes les entités" },
+    { "name": "Pays", "description": "Sénégal — données nationales et polygone" },
+    { "name": "Régions", "description": "14 régions administratives" },
+    { "name": "Départements", "description": "46 départements" },
+    { "name": "Communes", "description": "552 communes" },
+    { "name": "Localités", "description": "25 515 localités géolocalisées (polygones Voronoï)" },
+    { "name": "Map", "description": "GeoJSON FeatureCollections pour cartographie (Leaflet, Mapbox, D3.js, SVG)" }
   ],
   "paths": {
     "/health": {
       "get": {
         "tags": ["Health"],
         "summary": "Health check",
+        "description": "Vérifie le statut du service et de la connexion à la base de données.",
+        "operationId": "getHealth",
         "responses": {
           "200": {
             "description": "Statut du service",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": { "type": "string", "example": "ok" },
-                    "service": { "type": "string", "example": "frontieres-api" },
-                    "database": { "type": "string", "example": "connected" },
-                    "timestamp": { "type": "string", "format": "date-time" }
-                  }
-                }
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
               }
             }
           }
         }
       }
     },
+
     "/api/stats": {
       "get": {
         "tags": ["Stats"],
         "summary": "Statistiques globales",
+        "description": "Retourne le nombre total de régions, départements, communes et localités.",
+        "operationId": "getStats",
         "responses": {
           "200": {
             "description": "Compteurs de toutes les entités",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "regions": { "type": "integer", "example": 14 },
-                    "departements": { "type": "integer", "example": 46 },
-                    "communes": { "type": "integer", "example": 552 },
-                    "localites": { "type": "integer", "example": 25515 },
-                    "localites_with_coordinates": { "type": "integer", "example": 25515 },
-                    "localites_with_population": { "type": "integer", "example": 18000 }
-                  }
-                }
+                "schema": { "$ref": "#/components/schemas/StatsResponse" }
               }
             }
           }
         }
       }
     },
+
     "/api/pays": {
       "get": {
         "tags": ["Pays"],
-        "summary": "Statistiques nationales du Sénégal",
+        "summary": "Données nationales du Sénégal",
+        "description": "Retourne les données du Sénégal : nom, coordonnées, superficie, population, densité et géométrie.",
+        "operationId": "getPays",
         "responses": {
           "200": {
             "description": "Données nationales",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Pays" }
+                "schema": { "$ref": "#/components/schemas/Pays" },
+                "example": {
+                  "id": 1,
+                  "name": "Sénégal",
+                  "lat": 14.4974,
+                  "lon": -14.4524,
+                  "elevation": null,
+                  "superficie_km2": 196629.32,
+                  "population": 22488341,
+                  "densite": 114.37,
+                  "geometry": { "type": "MultiPolygon", "coordinates": [] }
+                }
               }
             }
-          }
+          },
+          "404": { "description": "Données pays non trouvées" }
         }
       }
     },
-    "/api/map/pays": {
-      "get": {
-        "tags": ["Map", "Pays"],
-        "summary": "GeoJSON Feature du polygone national du Sénégal",
-        "responses": {
-          "200": {
-            "description": "GeoJSON Feature MultiPolygon avec statistiques nationales",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PaysFeature" }
-              }
-            }
-          }
-        }
-      }
-    },
+
     "/api/regions": {
       "get": {
-        "tags": ["Regions"],
+        "tags": ["Régions"],
         "summary": "Liste de toutes les régions",
+        "description": "Retourne les 14 régions avec leurs propriétés et géométries.",
+        "operationId": "getRegions",
         "responses": {
           "200": {
-            "description": "Array de GeoJSON Features (régions)",
+            "description": "Tableau des régions",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/RegionFeature" }
+                  "items": { "$ref": "#/components/schemas/Region" }
                 }
               }
             }
@@ -127,32 +124,67 @@
     },
     "/api/regions/{id}": {
       "get": {
-        "tags": ["Regions"],
+        "tags": ["Régions"],
         "summary": "Une région par ID",
+        "operationId": "getRegionById",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
-          "200": { "description": "GeoJSON Feature", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegionFeature" } } } },
+          "200": {
+            "description": "Région trouvée",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Region" }
+              }
+            }
+          },
           "404": { "description": "Région non trouvée" }
         }
       }
     },
-    "/api/departements": {
+    "/api/regions/{id}/departements": {
       "get": {
-        "tags": ["Departements"],
-        "summary": "Liste des départements",
+        "tags": ["Régions", "Départements"],
+        "summary": "Départements d'une région",
+        "description": "Retourne tous les départements appartenant à la région spécifiée.",
+        "operationId": "getDepartementsByRegion",
         "parameters": [
-          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par région" }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
           "200": {
-            "description": "Array de GeoJSON Features (départements)",
+            "description": "Tableau des départements de la région",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/DepartementFeature" }
+                  "items": { "$ref": "#/components/schemas/Departement" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/departements": {
+      "get": {
+        "tags": ["Départements"],
+        "summary": "Liste des départements",
+        "description": "Retourne les 46 départements, avec filtre optionnel par région.",
+        "operationId": "getDepartements",
+        "parameters": [
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de région" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des départements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Departement" }
                 }
               }
             }
@@ -162,32 +194,68 @@
     },
     "/api/departements/{id}": {
       "get": {
-        "tags": ["Departements"],
+        "tags": ["Départements"],
         "summary": "Un département par ID",
+        "operationId": "getDepartementById",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
-          "200": { "description": "GeoJSON Feature", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartementFeature" } } } },
+          "200": {
+            "description": "Département trouvé",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Departement" }
+              }
+            }
+          },
           "404": { "description": "Département non trouvé" }
         }
       }
     },
-    "/api/communes": {
+    "/api/departements/{id}/communes": {
       "get": {
-        "tags": ["Communes"],
-        "summary": "Liste des communes",
+        "tags": ["Départements", "Communes"],
+        "summary": "Communes d'un département",
+        "description": "Retourne toutes les communes appartenant au département spécifié.",
+        "operationId": "getCommunesByDepartement",
         "parameters": [
-          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par département" }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
           "200": {
-            "description": "Array de GeoJSON Features (communes)",
+            "description": "Tableau des communes du département",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/CommuneFeature" }
+                  "items": { "$ref": "#/components/schemas/Commune" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/communes": {
+      "get": {
+        "tags": ["Communes"],
+        "summary": "Liste des communes",
+        "description": "Retourne les 552 communes, avec filtres optionnels par département ou région.",
+        "operationId": "getCommunes",
+        "parameters": [
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de département" },
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de région" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des communes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Commune" }
                 }
               }
             }
@@ -199,29 +267,64 @@
       "get": {
         "tags": ["Communes"],
         "summary": "Une commune par ID",
+        "operationId": "getCommuneById",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
-          "200": { "description": "GeoJSON Feature", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CommuneFeature" } } } },
+          "200": {
+            "description": "Commune trouvée",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Commune" }
+              }
+            }
+          },
           "404": { "description": "Commune non trouvée" }
         }
       }
     },
-    "/api/localites": {
+    "/api/communes/{id}/localites": {
       "get": {
-        "tags": ["Localites"],
-        "summary": "Liste des localités",
+        "tags": ["Communes", "Localités"],
+        "summary": "Localités d'une commune",
+        "description": "Retourne toutes les localités appartenant à la commune spécifiée.",
+        "operationId": "getLocalitesByCommune",
         "parameters": [
-          { "name": "commune_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par commune" },
-          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par département" },
-          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par région" },
-          { "name": "limit", "in": "query", "schema": { "type": "integer" }, "description": "Nombre max de résultats" },
-          { "name": "offset", "in": "query", "schema": { "type": "integer" }, "description": "Décalage pour pagination" }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
           "200": {
-            "description": "Array de localités",
+            "description": "Tableau des localités de la commune",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Localite" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/localites": {
+      "get": {
+        "tags": ["Localités"],
+        "summary": "Liste des localités",
+        "description": "Retourne les localités avec filtres optionnels et pagination.",
+        "operationId": "getLocalites",
+        "parameters": [
+          { "name": "commune_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de commune" },
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de département" },
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de région" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" }, "description": "Nombre maximum de résultats" },
+          { "name": "offset", "in": "query", "schema": { "type": "integer" }, "description": "Décalage pour la pagination" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des localités",
             "content": {
               "application/json": {
                 "schema": {
@@ -236,8 +339,10 @@
     },
     "/api/localites/search": {
       "get": {
-        "tags": ["Localites"],
+        "tags": ["Localités"],
         "summary": "Rechercher des localités par nom",
+        "description": "Recherche insensible à la casse. Nécessite au moins 2 caractères.",
+        "operationId": "searchLocalites",
         "parameters": [
           { "name": "q", "in": "query", "required": true, "schema": { "type": "string", "minLength": 2 }, "description": "Terme de recherche (min 2 caractères)" },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 }, "description": "Nombre max de résultats" }
@@ -254,203 +359,352 @@
               }
             }
           },
-          "400": { "description": "Paramètre q manquant ou trop court" }
+          "400": { "description": "Paramètre `q` manquant ou contenant moins de 2 caractères" }
         }
       }
     },
     "/api/localites/{id}": {
       "get": {
-        "tags": ["Localites"],
+        "tags": ["Localités"],
         "summary": "Une localité par ID",
+        "operationId": "getLocaliteById",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/IdPath" }
         ],
         "responses": {
-          "200": { "description": "Localité", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Localite" } } } },
+          "200": {
+            "description": "Localité trouvée",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Localite" }
+              }
+            }
+          },
           "404": { "description": "Localité non trouvée" }
+        }
+      }
+    },
+
+    "/api/map/pays": {
+      "get": {
+        "tags": ["Map", "Pays"],
+        "summary": "FeatureCollection GeoJSON du Sénégal",
+        "description": "Retourne le polygone national sous forme de GeoJSON FeatureCollection.",
+        "operationId": "getMapPays",
+        "responses": {
+          "200": {
+            "description": "GeoJSON FeatureCollection (1 feature)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FeatureCollection" }
+              }
+            }
+          }
         }
       }
     },
     "/api/map/regions": {
       "get": {
-        "tags": ["Map"],
-        "summary": "FeatureCollection GeoJSON de toutes les régions",
+        "tags": ["Map", "Régions"],
+        "summary": "FeatureCollection GeoJSON des régions",
+        "description": "Retourne les 14 régions sous forme de GeoJSON FeatureCollection.",
+        "operationId": "getMapRegions",
         "responses": {
-          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+          "200": {
+            "description": "GeoJSON FeatureCollection (14 features)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FeatureCollection" }
+              }
+            }
+          }
         }
       }
     },
     "/api/map/departements": {
       "get": {
-        "tags": ["Map"],
-        "summary": "FeatureCollection GeoJSON de tous les départements",
+        "tags": ["Map", "Départements"],
+        "summary": "FeatureCollection GeoJSON des départements",
+        "description": "Retourne les départements sous forme de GeoJSON FeatureCollection, avec filtre optionnel par région.",
+        "operationId": "getMapDepartements",
+        "parameters": [
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de région" }
+        ],
         "responses": {
-          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FeatureCollection" }
+              }
+            }
+          }
         }
       }
     },
     "/api/map/communes": {
       "get": {
-        "tags": ["Map"],
-        "summary": "FeatureCollection GeoJSON de toutes les communes",
+        "tags": ["Map", "Communes"],
+        "summary": "FeatureCollection GeoJSON des communes",
+        "description": "Retourne les communes sous forme de GeoJSON FeatureCollection, avec filtres optionnels.",
+        "operationId": "getMapCommunes",
+        "parameters": [
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de département" },
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de région" }
+        ],
         "responses": {
-          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FeatureCollection" }
+              }
+            }
+          }
         }
       }
     },
     "/api/map/localites": {
       "get": {
-        "tags": ["Map"],
-        "summary": "FeatureCollection GeoJSON des localités (polygones Voronoï)",
+        "tags": ["Map", "Localités"],
+        "summary": "FeatureCollection GeoJSON des localités",
+        "description": "Retourne les localités (polygones Voronoï) sous forme de GeoJSON FeatureCollection, avec filtres optionnels. Il est recommandé de toujours filtrer pour éviter des réponses très volumineuses (~25k features).",
+        "operationId": "getMapLocalites",
         "parameters": [
-          { "name": "commune_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par commune" },
-          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par département" },
-          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par région" },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 500 }, "description": "Nombre max de features" }
+          { "name": "commune_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de commune" },
+          { "name": "departement_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de département" },
+          { "name": "region_id", "in": "query", "schema": { "type": "integer" }, "description": "Filtrer par ID de région" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" }, "description": "Nombre maximum de features" }
         ],
         "responses": {
-          "200": { "description": "GeoJSON FeatureCollection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } } }
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FeatureCollection" }
+              }
+            }
+          }
         }
       }
     }
   },
   "components": {
+    "parameters": {
+      "IdPath": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "integer" },
+        "description": "Identifiant numérique de l'entité"
+      }
+    },
     "schemas": {
-      "RegionFeature": {
+      "HealthResponse": {
         "type": "object",
         "properties": {
-          "type": { "type": "string", "example": "Feature" },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "integer" },
-              "region_id": { "type": "integer" },
-              "name": { "type": "string", "example": "Dakar" },
-              "lat": { "type": "number", "example": 14.739 },
-              "lon": { "type": "number", "example": -17.246 },
-              "superficie_km2": { "type": "number", "example": 541.65 },
-              "population": { "type": "integer", "example": 3900000 },
-              "densite": { "type": "number", "example": 7208.5 }
-            }
-          },
-          "geometry": {
-            "type": "object",
-            "properties": {
-              "type": { "type": "string", "example": "MultiPolygon" },
-              "coordinates": { "type": "array" }
-            }
-          }
+          "status": { "type": "string", "example": "ok", "enum": ["ok", "degraded"] },
+          "service": { "type": "string", "example": "frontieres-api" },
+          "database": { "type": "string", "example": "connected", "enum": ["connected", "disconnected", "error"] },
+          "timestamp": { "type": "string", "format": "date-time", "example": "2025-03-08T12:00:00.000Z" }
         }
       },
-      "DepartementFeature": {
+      "StatsResponse": {
         "type": "object",
         "properties": {
-          "type": { "type": "string", "example": "Feature" },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "integer" },
-              "departement_id": { "type": "integer" },
-              "region_id": { "type": "integer" },
-              "name": { "type": "string", "example": "Dakar" },
-              "lat": { "type": "number", "example": 14.711 },
-              "lon": { "type": "number", "example": -17.459 },
-              "superficie_km2": { "type": "number", "example": 78.48 },
-              "population": { "type": "integer", "example": 1200000 },
-              "densite": { "type": "number", "example": 15290.3 }
-            }
-          },
-          "geometry": {
-            "type": "object",
-            "properties": {
-              "type": { "type": "string", "example": "MultiPolygon" },
-              "coordinates": { "type": "array" }
-            }
-          }
+          "regions": { "type": "integer", "example": 14 },
+          "departements": { "type": "integer", "example": 46 },
+          "communes": { "type": "integer", "example": 552 },
+          "localites": { "type": "integer", "example": 25515 },
+          "localites_with_coordinates": { "type": "integer", "example": 25515 },
+          "localites_with_population": { "type": "integer", "example": 18000 }
         }
       },
-      "CommuneFeature": {
+      "GeoJSONGeometry": {
         "type": "object",
+        "description": "Géométrie GeoJSON MultiPolygon (SRID 4326)",
         "properties": {
-          "type": { "type": "string", "example": "Feature" },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "integer" },
-              "commune_id": { "type": "integer" },
-              "departement_id": { "type": "integer" },
-              "name": { "type": "string", "example": "Gorée" },
-              "lat": { "type": "number", "example": 14.668 },
-              "lon": { "type": "number", "example": -17.398 },
-              "superficie_km2": { "type": "number", "example": 18.5 },
-              "population": { "type": "integer", "example": 1200 },
-              "densite": { "type": "number", "example": 64.9 }
-            }
-          },
-          "geometry": {
-            "type": "object",
-            "properties": {
-              "type": { "type": "string", "example": "MultiPolygon" },
-              "coordinates": { "type": "array" }
-            }
-          }
+          "type": { "type": "string", "example": "MultiPolygon" },
+          "coordinates": { "type": "array", "description": "Coordonnées du polygone [longitude, latitude]" }
         }
       },
-      "Localite": {
+      "BaseProperties": {
         "type": "object",
+        "description": "Propriétés communes à toutes les entités",
         "properties": {
-          "id": { "type": "integer" },
-          "name": { "type": "string", "example": "Ngor" },
-          "commune_id": { "type": "integer" },
-          "departement_id": { "type": "integer" },
-          "region_id": { "type": "integer" },
-          "latitude": { "type": "number", "example": 14.75 },
-          "longitude": { "type": "number", "example": -17.52 },
-          "source": { "type": "string", "enum": ["sn_txt", "osm_geojson", "osm_geojson_estimated", "commune_polygon_random"], "example": "sn_txt" },
-          "elevation": { "type": "integer", "example": 24, "description": "Élévation en mètres (SRTM30m via opentopodata)" },
-          "geometry": { "type": "object", "description": "GeoJSON MultiPolygon Voronoï (limité à la commune)" },
-          "superficie_km2": { "type": "number", "example": 7.69, "description": "Superficie du polygone Voronoï (km²)" },
-          "population": { "type": "integer", "example": 350, "description": "Population issue du recensement ANSD 2023" },
-          "densite": { "type": "number", "example": 45.5, "description": "Densité (hab/km²)" }
+          "id": { "type": "integer", "description": "Identifiant unique" },
+          "name": { "type": "string", "description": "Nom de l'entité" },
+          "lat": { "type": "number", "nullable": true, "description": "Latitude du centroïde" },
+          "lon": { "type": "number", "nullable": true, "description": "Longitude du centroïde" },
+          "elevation": { "type": "number", "nullable": true, "description": "Élévation en mètres (SRTM30m)" },
+          "superficie_km2": { "type": "number", "nullable": true, "description": "Superficie en km²" },
+          "population": { "type": "integer", "nullable": true, "description": "Population (ANSD 2023)" },
+          "densite": { "type": "number", "nullable": true, "description": "Densité en hab/km²" }
         }
       },
       "Pays": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "example": "Sénégal" },
-          "superficie_km2": { "type": "number", "example": 196629.32 },
-          "population": { "type": "integer", "example": 22488341 },
-          "densite": { "type": "number", "example": 114.37 }
-        }
-      },
-      "PaysFeature": {
-        "type": "object",
-        "properties": {
-          "type": { "type": "string", "example": "Feature" },
-          "properties": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BaseProperties" },
+          {
             "type": "object",
             "properties": {
-              "id": { "type": "integer", "example": 1 },
-              "name": { "type": "string", "example": "Sénégal" },
-              "superficie_km2": { "type": "number", "example": 196629.32 },
-              "population": { "type": "integer", "example": 22488341 },
-              "densite": { "type": "number", "example": 114.37 }
-            }
-          },
-          "geometry": {
-            "type": "object",
-            "properties": {
-              "type": { "type": "string", "example": "MultiPolygon" },
-              "coordinates": { "type": "array" }
+              "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
             }
           }
+        ],
+        "example": {
+          "id": 1,
+          "name": "Sénégal",
+          "lat": 14.4974,
+          "lon": -14.4524,
+          "elevation": null,
+          "superficie_km2": 196629.32,
+          "population": 22488341,
+          "densite": 114.37,
+          "geometry": { "type": "MultiPolygon", "coordinates": [] }
+        }
+      },
+      "Region": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BaseProperties" },
+          {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "nullable": true, "description": "Code de la région" },
+              "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
+            }
+          }
+        ],
+        "example": {
+          "id": 1,
+          "name": "Dakar",
+          "code": "DK",
+          "lat": 14.739,
+          "lon": -17.246,
+          "elevation": 12,
+          "superficie_km2": 541.65,
+          "population": 4391619,
+          "densite": 8107.84,
+          "geometry": { "type": "MultiPolygon", "coordinates": [] }
+        }
+      },
+      "Departement": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BaseProperties" },
+          {
+            "type": "object",
+            "properties": {
+              "region_id": { "type": "integer", "description": "ID de la région parente" },
+              "code": { "type": "string", "nullable": true, "description": "Code du département" },
+              "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
+            }
+          }
+        ],
+        "example": {
+          "id": 1,
+          "name": "Dakar",
+          "region_id": 1,
+          "code": "DK",
+          "lat": 14.711,
+          "lon": -17.459,
+          "elevation": 10,
+          "superficie_km2": 78.48,
+          "population": 1200000,
+          "densite": 15290.3,
+          "geometry": { "type": "MultiPolygon", "coordinates": [] }
+        }
+      },
+      "Commune": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BaseProperties" },
+          {
+            "type": "object",
+            "properties": {
+              "region_id": { "type": "integer", "description": "ID de la région parente" },
+              "departement_id": { "type": "integer", "description": "ID du département parent" },
+              "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
+            }
+          }
+        ],
+        "example": {
+          "id": 1,
+          "name": "Gorée",
+          "region_id": 1,
+          "departement_id": 1,
+          "lat": 14.668,
+          "lon": -17.398,
+          "elevation": 5,
+          "superficie_km2": 18.5,
+          "population": 1200,
+          "densite": 64.9,
+          "geometry": { "type": "MultiPolygon", "coordinates": [] }
+        }
+      },
+      "Localite": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BaseProperties" },
+          {
+            "type": "object",
+            "properties": {
+              "commune_id": { "type": "integer", "description": "ID de la commune parente" },
+              "departement_id": { "type": "integer", "description": "ID du département parent" },
+              "region_id": { "type": "integer", "description": "ID de la région parente" },
+              "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
+            }
+          }
+        ],
+        "example": {
+          "id": 1,
+          "name": "Ngor",
+          "commune_id": 5,
+          "departement_id": 1,
+          "region_id": 1,
+          "lat": 14.75,
+          "lon": -17.52,
+          "elevation": 24,
+          "superficie_km2": 7.69,
+          "population": 350,
+          "densite": 45.5,
+          "geometry": { "type": "MultiPolygon", "coordinates": [] }
+        }
+      },
+      "GeoJSONFeature": {
+        "type": "object",
+        "description": "GeoJSON Feature avec propriétés et géométrie",
+        "properties": {
+          "type": { "type": "string", "example": "Feature" },
+          "properties": { "type": "object", "description": "Propriétés de l'entité (id, name, lat, lon, elevation, superficie_km2, population, densite, etc.)" },
+          "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
         }
       },
       "FeatureCollection": {
         "type": "object",
+        "description": "GeoJSON FeatureCollection contenant un tableau de Features",
         "properties": {
           "type": { "type": "string", "example": "FeatureCollection" },
-          "features": { "type": "array", "items": { "type": "object" } }
+          "features": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GeoJSONFeature" }
+          }
+        },
+        "example": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "id": 1,
+                "name": "Dakar",
+                "lat": 14.739,
+                "lon": -17.246,
+                "elevation": 12,
+                "superficie_km2": 541.65,
+                "population": 4391619,
+                "densite": 8107.84
+              },
+              "geometry": { "type": "MultiPolygon", "coordinates": [] }
+            }
+          ]
         }
       }
     }
