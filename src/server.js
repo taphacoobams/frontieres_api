@@ -12,7 +12,21 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 // Sécurité
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.redoc.ly"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.redoc.ly"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https://cdn.redoc.ly"],
+      workerSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
 app.use(cors());
 
 // Compression gzip
