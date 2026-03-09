@@ -36,6 +36,36 @@ const CommuneController = {
     }
   },
 
+  async getByRegion(req, res) {
+    try {
+      const rows = await CommuneService.getAll({ regionId: req.params.id });
+      res.json(rows);
+    } catch (err) {
+      console.error('Erreur GET /regions/:id/communes :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getMapByDepartement(req, res) {
+    try {
+      const fc = await CommuneService.getFeatureCollection({ departementId: req.params.id });
+      res.json(fc);
+    } catch (err) {
+      console.error('Erreur GET /map/departements/:id/communes :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getMapByRegion(req, res) {
+    try {
+      const fc = await CommuneService.getFeatureCollection({ regionId: req.params.id });
+      res.json(fc);
+    } catch (err) {
+      console.error('Erreur GET /map/regions/:id/communes :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
   async getFeatureCollection(req, res) {
     try {
       const regionId = req.query.region_id || null;

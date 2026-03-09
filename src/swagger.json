@@ -167,6 +167,54 @@
         }
       }
     },
+    "/api/regions/{id}/communes": {
+      "get": {
+        "tags": ["Régions", "Communes"],
+        "summary": "Communes d'une région",
+        "description": "Retourne toutes les communes appartenant à la région spécifiée (via `communes.region_id`).",
+        "operationId": "getCommunesByRegion",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des communes de la région",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Commune" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/regions/{id}/localites": {
+      "get": {
+        "tags": ["Régions", "Localités"],
+        "summary": "Localités d'une région",
+        "description": "Retourne toutes les localités appartenant à la région spécifiée (via `localites.region_id`).",
+        "operationId": "getLocalitesByRegion",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des localités de la région",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Localite" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
 
     "/api/departements": {
       "get": {
@@ -230,6 +278,30 @@
                 "schema": {
                   "type": "array",
                   "items": { "$ref": "#/components/schemas/Commune" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/departements/{id}/localites": {
+      "get": {
+        "tags": ["Départements", "Localités"],
+        "summary": "Localités d'un département",
+        "description": "Retourne toutes les localités appartenant au département spécifié (via `localites.departement_id`).",
+        "operationId": "getLocalitesByDepartement",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des localités du département",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Localite" }
                 }
               }
             }
@@ -421,6 +493,38 @@
         }
       }
     },
+    "/api/map/regions/{id}/communes": {
+      "get": {
+        "tags": ["Map", "Régions", "Communes"],
+        "summary": "FeatureCollection GeoJSON des communes d'une région",
+        "operationId": "getMapCommunesByRegion",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } }
+          }
+        }
+      }
+    },
+    "/api/map/regions/{id}/localites": {
+      "get": {
+        "tags": ["Map", "Régions", "Localités"],
+        "summary": "FeatureCollection GeoJSON des localités d'une région",
+        "operationId": "getMapLocalitesByRegion",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } }
+          }
+        }
+      }
+    },
     "/api/map/departements": {
       "get": {
         "tags": ["Map", "Départements"],
@@ -438,6 +542,38 @@
                 "schema": { "$ref": "#/components/schemas/FeatureCollection" }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/map/departements/{id}/communes": {
+      "get": {
+        "tags": ["Map", "Départements", "Communes"],
+        "summary": "FeatureCollection GeoJSON des communes d'un département",
+        "operationId": "getMapCommunesByDepartement",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } }
+          }
+        }
+      }
+    },
+    "/api/map/departements/{id}/localites": {
+      "get": {
+        "tags": ["Map", "Départements", "Localités"],
+        "summary": "FeatureCollection GeoJSON des localités d'un département",
+        "operationId": "getMapLocalitesByDepartement",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } }
           }
         }
       }
@@ -460,6 +596,22 @@
                 "schema": { "$ref": "#/components/schemas/FeatureCollection" }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/map/communes/{id}/localites": {
+      "get": {
+        "tags": ["Map", "Communes", "Localités"],
+        "summary": "FeatureCollection GeoJSON des localités d'une commune",
+        "operationId": "getMapLocalitesByCommune",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdPath" }
+        ],
+        "responses": {
+          "200": {
+            "description": "GeoJSON FeatureCollection",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FeatureCollection" } } }
           }
         }
       }

@@ -48,12 +48,60 @@ const LocaliteController = {
 
   async getByCommune(req, res) {
     try {
-      const rows = await LocaliteService.getAll({
-        communeId: req.params.id,
-      });
+      const rows = await LocaliteService.getAll({ communeId: req.params.id });
       res.json(rows);
     } catch (err) {
       console.error('Erreur GET /communes/:id/localites :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getByDepartement(req, res) {
+    try {
+      const rows = await LocaliteService.getAll({ departementId: req.params.id });
+      res.json(rows);
+    } catch (err) {
+      console.error('Erreur GET /departements/:id/localites :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getByRegion(req, res) {
+    try {
+      const rows = await LocaliteService.getAll({ regionId: req.params.id });
+      res.json(rows);
+    } catch (err) {
+      console.error('Erreur GET /regions/:id/localites :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getMapByCommune(req, res) {
+    try {
+      const geojson = await LocaliteService.getFeatureCollection({ communeId: req.params.id });
+      res.json(geojson);
+    } catch (err) {
+      console.error('Erreur GET /map/communes/:id/localites :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getMapByDepartement(req, res) {
+    try {
+      const geojson = await LocaliteService.getFeatureCollection({ departementId: req.params.id });
+      res.json(geojson);
+    } catch (err) {
+      console.error('Erreur GET /map/departements/:id/localites :', err.message);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  },
+
+  async getMapByRegion(req, res) {
+    try {
+      const geojson = await LocaliteService.getFeatureCollection({ regionId: req.params.id });
+      res.json(geojson);
+    } catch (err) {
+      console.error('Erreur GET /map/regions/:id/localites :', err.message);
       res.status(500).json({ error: 'Erreur serveur' });
     }
   },
