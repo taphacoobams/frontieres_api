@@ -2,7 +2,7 @@
  * geocode_locations.js
  *
  * Geocodes communes and localities without coordinates using Nominatim (OpenStreetMap).
- * - Skips records that already have lat/lon
+ * - Geocodes ALL records (overwrites existing coords)
  * - Retries failed requests once
  * - Respects the 1 request/second Nominatim rate limit
  * - Logs progress every 50 processed records
@@ -74,22 +74,21 @@ async function geocodeCommunes(client) {
     FROM communes c
     LEFT JOIN departements d ON d.id = c.departement_id
     LEFT JOIN regions      r ON r.id = c.region_id
-    WHERE c.lat IS NULL OR c.lon IS NULL
     ORDER BY c.id
   `);
 
   if (rows.length === 0) {
-    console.log('  ✓ Toutes les communes ont déjà des coordonnées.');
+    console.log('  Aucune commune dans la base.');
     return;
   }
 
-  console.log(`  ${rows.length} communes sans coordonnées.\n`);
+  console.log(`  ${rows.length} communes à géocoder.\n`);
 
   let processed = 0;
   let updated   = 0;
 
   for (const row of rows) {
-    const parts = [row.name, row.departement_name, row.region_name, 'Sénégal']
+    const parts = [row.name, row.departement_name, 'Sénégal']
       .filter(Boolean);
     const query = parts.join(', ');
 
@@ -114,7 +113,7 @@ async function geocodeCommunes(client) {
     logProgress(processed, rows.length, 'communes');
   }
 
-  console.log(`\n  ✓ ${updated} communes mises à jour.`);
+  console.log(`\n  ✓ ${updated}/${rows.length} communes mises à jour.`);
   console.log(`  ✗ ${rows.length - updated} communes sans résultat.`);
 }
 
@@ -132,22 +131,21 @@ async function geocodeLocalites(client) {
     LEFT JOIN communes    c ON c.id = l.commune_id
     LEFT JOIN departements d ON d.id = l.departement_id
     LEFT JOIN regions      r ON r.id = l.region_id
-    WHERE l.lat IS NULL OR l.lon IS NULL
     ORDER BY l.id
   `);
 
   if (rows.length === 0) {
-    console.log('  ✓ Toutes les localités ont déjà des coordonnées.');
+    console.log('  Aucune localité dans la base.');
     return;
   }
 
-  console.log(`  ${rows.length} localités sans coordonnées.\n`);
+  console.log(`  ${rows.length} localités à géocoder.\n`);
 
   let processed = 0;
   let updated   = 0;
 
   for (const row of rows) {
-    const parts = [row.name, row.commune_name, row.region_name, 'Sénégal']
+    const parts = [row.name, row.commune_name, row.departement_name, 'Sénégal']
       .filter(Boolean);
     const query = parts.join(', ');
 
@@ -173,7 +171,7 @@ async function geocodeLocalites(client) {
     logProgress(processed, rows.length, 'localités');
   }
 
-  console.log(`\n  ✓ ${updated} localités mises à jour.`);
+  console.log(`\n  ✓ ${updated}/${rows.length} localités mises à jour.`);
   console.log(`  ✗ ${rows.length - updated} localités sans résultat.`);
 }
 
