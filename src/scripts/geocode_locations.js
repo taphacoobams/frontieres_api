@@ -20,9 +20,10 @@ const OUTPUT_DIR  = path.join(__dirname, '../../output');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'missing_locations.json');
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const RATE_LIMIT_MS = 1100;
+const RATE_LIMIT_MS = 2000;
 const PROGRESS_EVERY = 50;
-const USER_AGENT = 'frontieres-api-geocoder/1.0 (contact@frontieres-api)';
+const MAX_RETRIES = 3;
+const USER_AGENT = 'frontieres-api-geocoder/1.0 (https://github.com/taphacoobams/frontieres_api)';
 
 const missing = { communes: [], localites: [] };
 
@@ -38,6 +39,16 @@ async function nominatim(query, attempt = 1) {
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'fr' },
     });
+    if (res.status === 429) {
+      if (attempt <= MAX_RETRIES) {
+        const backoff = RATE_LIMIT_MS * attempt * 2;
+        console.warn(`  ↻ 429 rate-limit, attente ${backoff / 1000}s… (tentative ${attempt}/${MAX_RETRIES}) "${query}"`);
+        await sleep(backoff);
+        return nominatim(query, attempt + 1);
+      }
+      console.warn(`  ✗ 429 persistant après ${MAX_RETRIES} tentatives: "${query}"`);
+      return null;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.length > 0) {
@@ -45,10 +56,11 @@ async function nominatim(query, attempt = 1) {
     }
     return null;
   } catch (err) {
-    if (attempt === 1) {
-      console.warn(`  ↻ Retry pour: "${query}" (${err.message})`);
-      await sleep(RATE_LIMIT_MS);
-      return nominatim(query, 2);
+    if (attempt <= MAX_RETRIES) {
+      const backoff = RATE_LIMIT_MS * attempt;
+      console.warn(`  ↻ Retry ${attempt}/${MAX_RETRIES} pour: "${query}" (${err.message}), attente ${backoff / 1000}s`);
+      await sleep(backoff);
+      return nominatim(query, attempt + 1);
     }
     console.warn(`  ✗ Échec définitif: "${query}" — ${err.message}`);
     return null;
