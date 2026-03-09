@@ -12,3 +12,6 @@ export.geojson
 
 # Database dumps
 *.dump
+
+# Geocoding output (generated at runtime)
+output/missing_locations.json
