@@ -6,6 +6,11 @@ const BASE_SELECT = `
     FROM regions
     WHERE geometry IS NOT NULL
   ),
+  elevation_agg AS (
+    SELECT AVG(elevation)::numeric AS elevation
+    FROM regions
+    WHERE elevation IS NOT NULL
+  ),
   population_agg AS (
     SELECT SUM(population)::bigint AS population
     FROM localites
@@ -15,7 +20,7 @@ const BASE_SELECT = `
     'Sénégal' AS name,
     CASE WHEN rg.geom IS NOT NULL THEN ST_Y(ST_Centroid(rg.geom)) ELSE NULL END AS lat,
     CASE WHEN rg.geom IS NOT NULL THEN ST_X(ST_Centroid(rg.geom)) ELSE NULL END AS lon,
-    NULL::numeric AS elevation,
+    elev.elevation AS elevation,
     CASE WHEN rg.geom IS NOT NULL THEN ST_Area(geography(rg.geom)) / 1000000.0 ELSE NULL END AS superficie_km2,
     pop.population AS population,
     CASE
@@ -26,6 +31,7 @@ const BASE_SELECT = `
     END AS densite,
     rg.geom AS geometry
   FROM region_geom rg
+  CROSS JOIN elevation_agg elev
   CROSS JOIN population_agg pop
 `;
 
