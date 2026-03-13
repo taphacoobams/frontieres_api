@@ -468,7 +468,29 @@
             "description": "GeoJSON FeatureCollection (1 feature)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FeatureCollection" }
+                "schema": { "$ref": "#/components/schemas/FeatureCollection" },
+                "example": {
+                  "type": "FeatureCollection",
+                  "features": [
+                    {
+                      "type": "Feature",
+                      "properties": {
+                        "id": 1,
+                        "name": "Sénégal",
+                        "lat": 14.359894235766584,
+                        "lon": -14.466506955172084,
+                        "elevation": null,
+                        "superficie_km2": 196629.3155781184,
+                        "population": 22488341,
+                        "densite": 114.36921770225895
+                      },
+                      "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": []
+                      }
+                    }
+                  ]
+                }
               }
             }
           }
