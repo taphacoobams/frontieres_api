@@ -6,44 +6,27 @@ const BASE_SELECT = `
     FROM regions
     WHERE geometry IS NOT NULL
   ),
-  pays_one AS (
-    SELECT * FROM pays LIMIT 1
+  population_agg AS (
+    SELECT SUM(population)::bigint AS population
+    FROM localites
   )
   SELECT
-    COALESCE(p.id, 1) AS id,
-    COALESCE(p.name, 'Sénégal') AS name,
-    COALESCE(p.lat, ST_Y(ST_Centroid(COALESCE(p.geometry, rg.geom)))) AS lat,
-    COALESCE(p.lon, ST_X(ST_Centroid(COALESCE(p.geometry, rg.geom)))) AS lon,
-    p.elevation AS elevation,
-    COALESCE(
-      p.superficie_km2,
-      CASE
-        WHEN COALESCE(p.geometry, rg.geom) IS NOT NULL
-        THEN ST_Area(geography(COALESCE(p.geometry, rg.geom))) / 1000000.0
-        ELSE NULL
-      END
-    ) AS superficie_km2,
-    p.population AS population,
-    COALESCE(
-      p.densite,
-      CASE
-        WHEN p.population IS NOT NULL AND COALESCE(p.superficie_km2,
-          CASE
-            WHEN COALESCE(p.geometry, rg.geom) IS NOT NULL
-            THEN ST_Area(geography(COALESCE(p.geometry, rg.geom))) / 1000000.0
-            ELSE NULL
-          END
-        ) > 0
-        THEN p.population / COALESCE(
-          p.superficie_km2,
-          ST_Area(geography(COALESCE(p.geometry, rg.geom))) / 1000000.0
-        )
-        ELSE NULL
-      END
-    ) AS densite,
-    COALESCE(p.geometry, rg.geom) AS geometry
+    1 AS id,
+    'Sénégal' AS name,
+    CASE WHEN rg.geom IS NOT NULL THEN ST_Y(ST_Centroid(rg.geom)) ELSE NULL END AS lat,
+    CASE WHEN rg.geom IS NOT NULL THEN ST_X(ST_Centroid(rg.geom)) ELSE NULL END AS lon,
+    NULL::numeric AS elevation,
+    CASE WHEN rg.geom IS NOT NULL THEN ST_Area(geography(rg.geom)) / 1000000.0 ELSE NULL END AS superficie_km2,
+    pop.population AS population,
+    CASE
+      WHEN pop.population IS NOT NULL AND rg.geom IS NOT NULL
+           AND (ST_Area(geography(rg.geom)) / 1000000.0) > 0
+      THEN pop.population / (ST_Area(geography(rg.geom)) / 1000000.0)
+      ELSE NULL
+    END AS densite,
+    rg.geom AS geometry
   FROM region_geom rg
-  LEFT JOIN pays_one p ON TRUE
+  CROSS JOIN population_agg pop
 `;
 
 const SELECT_WITH_GEOJSON = `
