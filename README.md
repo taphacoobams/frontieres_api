@@ -10,7 +10,7 @@ API REST construite avec **Node.js / Express** et **PostgreSQL / PostGIS** fourn
 * 📍 **14 régions** — polygones MultiPolygon, coordonnées, population, densité, superficie
 * 🏘️ **46 départements** — polygones MultiPolygon, coordonnées, population, densité, superficie
 * 🏠 **552 communes** — polygones MultiPolygon, coordonnées, population, densité, superficie
-* 📌 **25 515 localités** — polygones Voronoï, coordonnées GPS, population (ANSD 2023), densité
+* 📌 **25 515 localités** — `nom`, `commune_id`, `population` (ANSD 2023) — coordonnées en cours de correction, non exposées via l'API
 * 🗺️ **FeatureCollections GeoJSON** pour Leaflet, Mapbox, OpenLayers, D3.js, SVG
 * 🔍 Recherche par nom avec filtrage multi-niveaux (commune, département, région)
 * 📊 Statistiques globales
@@ -54,6 +54,8 @@ departements  (id, name, region_id, code, lat, lon, elevation, geometry, superfi
 communes      (id, name, departement_id, region_id, lat, lon, elevation, geometry, superficie_km2, population, densite)
 localites     (id, name, commune_id, departement_id, region_id, lat, lon, elevation, geometry, superficie_km2, population, densite)
 ```
+
+> **Note localités** : les colonnes `lat`, `lon`, `elevation`, `geometry` existent en base mais sont en cours de correction. L'API ne retourne que `id`, `name`, `commune_id` et `population`.
 
 ### Index
 
@@ -138,7 +140,17 @@ L'API est disponible sur `http://localhost:3005`.
 | Build | `npm install && npm run migrate-db` |
 | Start | `node src/server.js` |
 
-`npm run migrate-db` ajoute les colonnes manquantes (`ADD COLUMN IF NOT EXISTS`), crée les index GIST et B-tree. Il est **idempotent** — peut être relancé sans risque.
+``npm run migrate-db` ajoute les colonnes manquantes (`ADD COLUMN IF NOT EXISTS`), crée les index GIST et B-tree. Il est **idempotent** — peut être relancé sans risque.
+
+### Mettre à jour l'altitude (régions, départements, communes)
+
+```bash
+# Toutes les tables (via Open-Meteo Elevation, gratuit, sans clé)
+node src/scripts/update-elevation.js
+
+# Tables spécifiques
+node src/scripts/update-elevation.js --tables=regions,departements,communes
+```
 
 ### Importer les données depuis une base locale
 
@@ -209,19 +221,20 @@ Importe `sen_admin0_em.geojson`, calcule la superficie via PostGIS, additionne l
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/localites` | Liste des localités (paginée) |
+| `GET` | `/api/localites` | Liste des localités (paginée) — retourne `id`, `name`, `commune_id`, `population` |
 | `GET` | `/api/localites?commune_id=1` | Filtrées par commune |
 | `GET` | `/api/localites?departement_id=1` | Filtrées par département |
 | `GET` | `/api/localites?region_id=1` | Filtrées par région |
 | `GET` | `/api/localites?limit=50&offset=0` | Pagination |
 | `GET` | `/api/localites/:id` | Localité par ID |
 | `GET` | `/api/localites/search?q=dakar` | Recherche par nom (≥ 2 caractères) |
-| `GET` | `/api/map/localites` | FeatureCollection GeoJSON |
+| `GET` | `/api/map/localites` | FeatureCollection GeoJSON (geometry `null` — coords en correction) |
 | `GET` | `/api/map/localites?commune_id=1` | FeatureCollection filtrée par commune |
 | `GET` | `/api/map/localites?departement_id=1` | FeatureCollection filtrée par département |
 | `GET` | `/api/map/localites?region_id=1` | FeatureCollection filtrée par région |
 
 > La recherche est insensible à la casse et aux accents.
+> Les champs `lat`, `lon`, `elevation` et `geometry` des localités sont intentionnellement exclus de l'API (données en cours de correction).
 
 ### Statistiques & Utilitaires
 

@@ -22,6 +22,10 @@
     "populate-all": "npm run migrate && npm run download-ansd && npm run import-population && npm run compute-densite",
     "import-pays": "node src/scripts/import-pays.js",
     "geocode-locations": "node src/scripts/geocode_locations.js",
+    "fix-and-geocode": "node src/scripts/fix-and-geocode.js",
+    "geocode-localites": "node src/scripts/geocode-localites.js",
+    "import-frontieres": "node src/scripts/import-frontieres.js",
+    "reorder-ids": "node src/scripts/reorder-ids.js",
     "test": "jest --forceExit --detectOpenHandles"
   },
   "dependencies": {

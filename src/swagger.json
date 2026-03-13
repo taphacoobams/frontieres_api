@@ -28,7 +28,7 @@
     { "name": "Régions", "description": "14 régions administratives" },
     { "name": "Départements", "description": "46 départements" },
     { "name": "Communes", "description": "552 communes" },
-    { "name": "Localités", "description": "25 515 localités géolocalisées (polygones Voronoï)" },
+    { "name": "Localités", "description": "25 515 localités. Champs exposés via l'API : `id`, `name`, `commune_id`, `population`. Les coordonnées GPS et l'altitude sont gérées en base mais non exposées (données en cours de correction)." },
     { "name": "Map", "description": "GeoJSON FeatureCollections pour cartographie (Leaflet, Mapbox, D3.js, SVG)" }
   ],
   "paths": {
@@ -793,31 +793,19 @@
         }
       },
       "Localite": {
-        "allOf": [
-          { "$ref": "#/components/schemas/BaseProperties" },
-          {
-            "type": "object",
-            "properties": {
-              "commune_id": { "type": "integer", "description": "ID de la commune parente" },
-              "departement_id": { "type": "integer", "description": "ID du département parent" },
-              "region_id": { "type": "integer", "description": "ID de la région parente" },
-              "geometry": { "$ref": "#/components/schemas/GeoJSONGeometry" }
-            }
-          }
-        ],
+        "type": "object",
+        "description": "Localité — seuls les champs stables sont exposés via l'API. Les coordonnées GPS, l'altitude et la géométrie restent en base mais sont en cours de correction.",
+        "properties": {
+          "id": { "type": "integer", "description": "Identifiant unique" },
+          "name": { "type": "string", "description": "Nom de la localité" },
+          "commune_id": { "type": "integer", "nullable": true, "description": "ID de la commune parente" },
+          "population": { "type": "integer", "nullable": true, "description": "Population (ANSD 2023)" }
+        },
         "example": {
           "id": 1,
           "name": "Ngor",
           "commune_id": 5,
-          "departement_id": 1,
-          "region_id": 1,
-          "lat": 14.75,
-          "lon": -17.52,
-          "elevation": 24,
-          "superficie_km2": 7.69,
-          "population": 350,
-          "densite": 45.5,
-          "geometry": { "type": "MultiPolygon", "coordinates": [] }
+          "population": 350
         }
       },
       "GeoJSONFeature": {

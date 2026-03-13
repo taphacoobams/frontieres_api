@@ -1,22 +1,12 @@
 const pool = require('../database/connection');
 
-const COLUMNS = `id, name, commune_id, departement_id, region_id,
-       lat, lon, elevation,
-       superficie_km2, population, densite,
-       ST_AsGeoJSON(geometry)::json AS geometry`;
+const COLUMNS = `id, name, commune_id, population`;
 
 const PROPERTIES_SQL = `json_build_object(
-  'id',             id,
-  'name',           name,
-  'commune_id',     commune_id,
-  'departement_id', departement_id,
-  'region_id',      region_id,
-  'lat',            lat,
-  'lon',            lon,
-  'elevation',      elevation,
-  'superficie_km2', superficie_km2,
-  'population',     population,
-  'densite',        densite
+  'id',         id,
+  'name',       name,
+  'commune_id', commune_id,
+  'population', population
 )`;
 
 function buildFilter(filters) {
@@ -88,7 +78,7 @@ const Localite = {
           json_build_object(
             'type', 'Feature',
             'properties', ${PROPERTIES_SQL},
-            'geometry', ST_AsGeoJSON(geometry)::json
+            'geometry', NULL
           )
         ORDER BY name), '[]'::json)
       ) AS geojson
