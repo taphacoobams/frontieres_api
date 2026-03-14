@@ -26,6 +26,7 @@
     "geocode-localites": "node src/scripts/geocode-localites.js",
     "import-frontieres": "node src/scripts/import-frontieres.js",
     "fix-guede-boundaries": "node src/scripts/fix-guede-boundaries.js",
+    "fix-guede-boundaries-doue": "node src/scripts/fix-guede-boundaries-doue.js",
     "reorder-ids": "node src/scripts/reorder-ids.js",
     "test": "jest --forceExit --detectOpenHandles"
   },
